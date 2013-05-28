@@ -15,6 +15,7 @@ node = range(13,31)
 node_processes = {}
 
 num_taxa = 4
+rate_class_limit = True
 
 def get_tree(num_taxa):
     return  ("("
@@ -72,8 +73,11 @@ def gen_unrooted_newick(part, number, max):
 
 def generate_settings(num_taxa, out_name):
     this_set = {}
-    rate_class_assignments = [  math.ceil(NP.random.exponential(.75))
-                                for _ in range((2*num_taxa) - 2)]
+    if rate_class_limit == True:
+        rate_class_assignments = [ 1 for _ in range((2*num_taxa) - 2)]
+    else:
+        rate_class_assignments = [  math.ceil(NP.random.exponential(.75))
+                                    for _ in range((2*num_taxa) - 2)]
     print(rate_class_assignments)
     #rate_class_assignments = [ 1 for _ in range((2*num_taxa) - 2)]
     out = open(out_name, 'w')
@@ -118,7 +122,7 @@ def generate_settings(num_taxa, out_name):
 
 def params_to_string(param_list):
     entry = "\"" + param_list["name"] + "\" : { \"length\" : "
-    entry += str(param_list["len"])
+    entry += str(param_list["length"])
     entry += ",\n"
     entry += "\t\"omegas\" : {"
     for o,p in zip(param_list["omegas"], param_list["props"]):
@@ -131,8 +135,8 @@ def generate_taxa(tax_name, num_rate_classes):
     entry["name"] = str(tax_name)
     # XXX re-enable
     #len = NP.random.exponential(.25, 1)[0]
-    length = 1
-    entry["len"] = length
+    length = 0.5
+    entry["length"] = length
     omegas = sorted([NP.random.exponential((.5 + (10*i))) for i in range(num_rate_classes)])
 
     # check omegas over one:
@@ -189,8 +193,7 @@ def simulate(set_file_name, nodeI):
     output_file = open( os.path.dirname(os.path.abspath(__file__))
                         + os.sep
                         + set_file_name
-                        + '.sim.'
-                        + str(nodeI)
+                        + '.sim'
                         + '.txt', 'w')
     node_processes[str(nodeI)] = subprocess.Popen( call_list,
                                                     stdout=output_file)
@@ -219,7 +222,7 @@ def run_BSREL(set_file_name, nodeI, rep):
                     + str(rep)
                     + '.recovered";\n')
     batchfile.write('ExecuteAFile' \
-                    '("/usr/local/lib/hyphy/TemplateBatchFiles/BranchSiteREL.bf"' \
+                    '("/usr/local/lib/hyphy/TemplateBatchFiles/BranchSiteREL.bf"'
                     ', inputRedirect);')
     batchfile.close()
     call_list = [   'bpsh',
@@ -244,7 +247,9 @@ def run_BSREL(set_file_name, nodeI, rep):
 # return a dict of the different taxa (which are themselves dicts
 def recover_fit(num_taxa, rec_file_name, dist, rep):
     results = {}
-    resultsfile = open(rec_file_name + ".sim." + str(rep) + ".recovered.fit", 'r')
+    fullfilename = rec_file_name + ".sim." + str(rep) + ".recovered.fit"
+    print(fullfilename)
+    resultsfile = open(fullfilename, 'r')
     lines = resultsfile.readlines()
     lines = [line for line in lines if line[:11] == "mixtureTree"]
     for taxaI in range(1, (2*num_taxa) - 2):
@@ -258,7 +263,13 @@ def recover_fit(num_taxa, rec_file_name, dist, rep):
             value = tokens[1].split(';')[0]
         results[name.upper()][parameter] = value
     for taxa in results.keys():
-        results[taxa] = format_results(taxa, results[taxa])
+        try:
+            results[taxa] = format_results(taxa, results[taxa])
+        except KeyError:
+            print("dist: ", dist)
+            print("taxa: ", taxa)
+            print(results[taxa])
+            exit(1)
     return results
 
 def recover_csv(num_taxa, rec_file_name, dist, rep):
@@ -270,7 +281,7 @@ def recover_csv(num_taxa, rec_file_name, dist, rep):
         line = line.split(',')
         results[line[0]] = {}
         results[line[0]]["name"] = line[0]
-        results[line[0]]["len"] = line[-1]
+        results[line[0]]["length"] = line[-1]
         results[line[0]]["omegas"] = []
         results[line[0]]["props"] = []
         over_one = 0
@@ -285,6 +296,38 @@ def recover_csv(num_taxa, rec_file_name, dist, rep):
                                                     /float(line[2])))
     return results
 
+def recover_simulated(num_taxa, rec_file_name, dist, rep):
+    input = {}
+    sim_file = open(rec_file_name + ".sim.txt", 'r')
+    lines = sim_file.readlines()
+    names = [line for line in lines if line[:4] == "Node"]
+    names = [name.split('.')[1].rstrip() for name in names]
+    lengths = [line.strip() for line in lines if line.strip()[:6] == "Length"]
+    lengths = [length.split('=')[1] for length in lengths]
+    for name, length in zip(names, lengths):
+        input[name] = {}
+        input[name]["name"] = name
+        input[name]["length"] = length
+    # ad hoc FSM:
+    cur_name = ""
+    cur_omega_list = []
+    cur_prop_list = []
+    for line in lines:
+        if line[:4] == "Node":
+            if cur_name != "":
+                input[cur_name]["omegas"] = cur_omega_list
+                input[cur_name]["props"] = cur_prop_list
+                cur_omega_list = []
+                cur_prop_list = []
+            cur_name = line.split('.')[1].strip()
+        if line.lstrip()[:5] == "omega":
+            cur_omega_list.append(line.split('=')[1].strip())
+        if line.lstrip()[:6] == "weight":
+            cur_prop_list.append(line.split('=')[1].strip())
+    input[cur_name]["omegas"] = cur_omega_list
+    input[cur_name]["props"] = cur_prop_list
+    return input
+
 def format_results(taxa, taxa_dict):
     entry = {}
     entry["name"] = taxa
@@ -294,8 +337,8 @@ def format_results(taxa, taxa_dict):
     for key in taxa_dict.keys():
         if key == 't':
             omega = True
-    if omega:
-        entry["len"] = taxa_dict["t"]
+    if omega == True:
+        entry["length"] = taxa_dict["t"]
         for key in taxa_dict.keys():
             if key[:5] == "omega":
                 entry["omegas"].append(taxa_dict[key])
@@ -303,7 +346,7 @@ def format_results(taxa, taxa_dict):
                 entry["props"].append(taxa_dict[key])
         entry["props"] = convolve_props(entry["props"])
     else:
-        entry["len"] = taxa_dict['syn']
+        entry["length"] = taxa_dict['syn']
         if taxa_dict['syn'] == '0':
             entry["omegas"].append('20000')
         else:
@@ -322,8 +365,13 @@ def convolve_props(prop_list):
     tbr.append(remaining_weight)
     return tbr
 
-def params_to_meandnds(omegas, props):
-    return sum([float(omegas[i])*float(props[i]) for i in range(len(omegas))])
+# too specific, can be genericized. DEPRICATED
+#def params_to_meandnds(omegas, props):
+    #return sum([float(omegas[i])*float(props[i]) for i in range(len(omegas))])
+
+def weighted_average(values, weights):
+    return sum([float(values[i])*float(weights[i]) for i in range(len(values))])
+
 
 def coord_to_bin(coord, bins):
     tbr = coord
@@ -340,23 +388,19 @@ def coord_to_bin(coord, bins):
 def gen_lin_bins(min, max, num):
     bin_size = (max - min)/num
     #print("binsize: ", bin_size)
+    if bin_size == 0:
+        return [min]
     return [min+(i*bin_size) for i in range(num)]
-
-#def gen_log_bins(min, max, num):
-#    next_bin = .00000000001
-#    while next_bin < min:
-#        next_bin *= 10
-#    next_bin /= 10
-#    while next_bin < max:
-#        yield next_bin
-#        next_bin *= 10
 
 def gen_log_bins(min, max, num):
     log_min = math.log10(min)
     log_max = math.log10(max)
     bin_size = (log_max - log_min)/num
+    if bin_size == 0:
+        return [min]
     return [10**(log_min + (i * bin_size)) for i in range(num)]
 
+# XXX incomplete
 def gen_semi_log_bins(min, max, num):
     tbr = []
     first_bin = -8
@@ -392,19 +436,64 @@ def gen_semi_log_bins(min, max, num):
             #current_index += 2
     return tbr
 
-def tuple_to_heatarray( data,
-                        x_num_bins,
-                        y_num_bins,
-                        xmax=0,
-                        xmin=1,
-                        ymax=0,
-                        ymin=1,
-                        xtype="linear",
-                        ytype="linear"):
-    xmin = min([x for x,y,p in data])
-    xmax = max([x for x,y,p in data])
-    ymin = min([y for x,y,p in data])
-    ymax = max([y for x,y,p in data])
+# this wasn't really taking the mean... depricated
+#def tuple_to_heatarray( data,
+#                        x_num_bins,
+#                        y_num_bins,
+#                        xmax=0,
+#                        xmin=1,
+#                        ymax=0,
+#                        ymin=1,
+#                        xtype="linear",
+#                        ytype="linear"):
+#    xmin = min([x for x,y,p in data])
+#    xmax = max([x for x,y,p in data])
+#    ymin = min([y for x,y,p in data])
+#    ymax = max([y for x,y,p in data])
+#    if xtype == "linear":
+#        xbins = gen_lin_bins(xmin, xmax, x_num_bins)
+#    else:
+#        xbins = gen_log_bins(xmin, xmax, x_num_bins)
+#    if ytype == "linear":
+#        ybins = gen_lin_bins(ymin, ymax, y_num_bins)
+#    else:
+#        ybins = gen_log_bins(ymin, ymax, y_num_bins)
+#    print("xbins: \n", xbins)
+#    heatarray = NP.ones((len(xbins), len(ybins)))
+#    heatarray[:] = 99
+#    heatcount = NP.zeros((len(xbins), len(ybins)))
+#    #print(ybins)
+#    for x,y,p in data:
+#        x_bin = coord_to_bin(x, xbins)
+#        y_bin = coord_to_bin(y, ybins)
+#        current_val = heatcount[x_bin][y_bin] * heatarray[x_bin][y_bin]
+#        heatcount[x_bin][y_bin] += 1
+#        new_val = (current_val + p)/heatcount[x_bin][y_bin]
+#        heatarray[x_bin][y_bin] = new_val
+#        #heatarray[coord_to_bin(x, xbins)][coord_to_bin(y, ybins)] = p
+#
+#    for xI in range(len(heatarray[:,1])):
+#        for yI in range(len(heatarray[1,:])):
+#            if heatarray[xI][yI] == 99:
+#                heatarray[xI][yI] = NP.NAN
+#    return heatarray, xbins, ybins
+
+# false positive to the ratio of false positives/input negative aka false
+# positive/false positive + true negative
+def tuple_to_false_positive_ratio_heatarray(  true_negative_results,
+                                        false_positive_results,
+                                        x_num_bins,
+                                        y_num_bins,
+                                        xmax=1,
+                                        xmin=0,
+                                        ymax=1,
+                                        ymin=0,
+                                        xtype="linear",
+                                        ytype="linear"):
+    xmin = min([x for x,y,p in false_positive_results])
+    xmax = max([x for x,y,p in false_positive_results])
+    ymin = min([y for x,y,p in false_positive_results])
+    ymax = max([y for x,y,p in false_positive_results])
     if xtype == "linear":
         xbins = gen_lin_bins(xmin, xmax, x_num_bins)
     else:
@@ -413,34 +502,155 @@ def tuple_to_heatarray( data,
         ybins = gen_lin_bins(ymin, ymax, y_num_bins)
     else:
         ybins = gen_log_bins(ymin, ymax, y_num_bins)
-    print("xbins: \n", xbins)
-    heatarray = NP.ones((len(xbins), len(ybins)))
-    heatarray[:] = 99
-    heatcount = NP.zeros((len(xbins), len(ybins)))
-    #print(ybins)
-    for x,y,p in data:
+    fp_count = NP.zeros((len(xbins), len(ybins)))
+    n_count = NP.zeros((len(xbins), len(ybins)))
+    for x,y,p in true_negative_results:
         x_bin = coord_to_bin(x, xbins)
         y_bin = coord_to_bin(y, ybins)
-        current_val = heatcount[x_bin][y_bin] * heatarray[x_bin][y_bin]
-        heatcount[x_bin][y_bin] += 1
-        new_val = (current_val + p)/heatcount[x_bin][y_bin]
-        heatarray[x_bin][y_bin] = new_val
-        #heatarray[coord_to_bin(x, xbins)][coord_to_bin(y, ybins)] = p
+        n_count[x_bin, y_bin] += 1
+    for x,y,p in false_positive_results:
+        x_bin = coord_to_bin(x, xbins)
+        y_bin = coord_to_bin(y, ybins)
+        fp_count[x_bin, y_bin] += 1
+    for xI in range(len(n_count[:,0])):
+        for yI in range(len(n_count[0,:])):
+            if n_count[xI,yI] == 0:
+                n_count[xI,yI] = NP.NAN
+            else:
+                n_count[xI,yI] = fp_count[xI,yI]/n_count[xI,yI]
+    return n_count, xbins, ybins
 
-    for xI in range(len(heatarray[:,1])):
-        for yI in range(len(heatarray[1,:])):
-            if heatarray[xI][yI] == 99:
-                heatarray[xI][yI] = NP.NAN
-    return heatarray, xbins, ybins
+# return heatarray of true positive/(true positive + false negative) aka true
+# postive/input positive
+def tuple_to_true_positive_ratio_heatarray( all_positive_inputs,
+                                            x_num_bins,
+                                            y_num_bins,
+                                            xmax=1,
+                                            xmin=0,
+                                            ymax=1,
+                                            ymin=0,
+                                            xtype="linear",
+                                            ytype="linear"):
+    xmin = min([x for x,y,p in all_positive_inputs])
+    xmax = max([x for x,y,p in all_positive_inputs])
+    ymin = min([y for x,y,p in all_positive_inputs])
+    ymax = max([y for x,y,p in all_positive_inputs])
+    if xtype == "linear":
+        xbins = gen_lin_bins(xmin, xmax, x_num_bins)
+    else:
+        xbins = gen_log_bins(xmin, xmax, x_num_bins)
+    if ytype == "linear":
+        ybins = gen_lin_bins(ymin, ymax, y_num_bins)
+    else:
+        ybins = gen_log_bins(ymin, ymax, y_num_bins)
+    tp_count = NP.zeros((len(xbins), len(ybins)))
+    p_count = NP.zeros((len(xbins), len(ybins)))
+    for x,y,p in all_positive_inputs:
+        x_bin = coord_to_bin(x, xbins)
+        y_bin = coord_to_bin(y, ybins)
+        p_count[x_bin][y_bin] += 1
+        if p < .05:
+            tp_count[x_bin][y_bin] += 1
+    for xI in range(len(p_count[:,0])):
+        for yI in range(len(p_count[0,:])):
+            if p_count[xI,yI] == 0:
+                p_count[xI,yI] = NP.NAN
+            else:
+                p_count[xI,yI] = tp_count[xI,yI]/p_count[xI,yI]
+    return p_count, xbins, ybins
 
-# XXX ie correlate the results and degree of error with characteristics of
-# the input
+def tuple_to_averaged_heatarray(tuples,
+                                x_num_bins,
+                                y_num_bins,
+                                xmax=1,
+                                xmin=1,
+                                ymax=1,
+                                ymin=1,
+                                xtype="linear",
+                                ytype="linear"):
+    xmin = min([x for x,y,p in tuples])
+    xmax = max([x for x,y,p in tuples])
+    ymin = min([y for x,y,p in tuples])
+    ymax = max([y for x,y,p in tuples])
+    if xtype == "linear":
+        xbins = gen_lin_bins(xmin, xmax, x_num_bins)
+    else:
+        xbins = gen_log_bins(xmin, xmax, x_num_bins)
+    if ytype == "linear":
+        ybins = gen_lin_bins(ymin, ymax, y_num_bins)
+    else:
+        ybins = gen_log_bins(ymin, ymax, y_num_bins)
+    sum_bins = NP.zeros((len(xbins), len(ybins)))
+    count_bins = NP.zeros((len(xbins), len(ybins)))
+    for x,y,p in tuples:
+        x_bin = coord_to_bin(x, xbins)
+        y_bin = coord_to_bin(y, ybins)
+        sum_bins[x_bin][y_bin] += p
+        count_bins[x_bin][y_bin] += 1
+    for xI in range(len(xbins)):
+        for yI in range(len(ybins)):
+            if count_bins[xI,yI] == 0:
+                sum_bins[xI,yI] = NP.NAN
+            else:
+                sum_bins[xI,yI] /= count_bins[xI,yI]
+    return sum_bins, xbins, ybins
+
+# XXX generalize this to def get_input_omegas etc
+def length_error(input, results):
+    tbr = []
+    for dist_key in input.keys():
+        for repI in range(len(results[dist_key])):
+            for taxa_key in input[dist_key].keys():
+                input_omegas = input[dist_key][taxa_key]["omegas"]
+                input_length = input[dist_key][taxa_key]["length"]
+                result_length = results[dist_key][repI][taxa_key]["length"]
+                difference = float(result_length) - float(input_length)
+                #difference = float(input_length) - float(result_length)
+                average = (float(input_length) + float(result_length))/2
+                # This would be the relative difference between the two
+                relative_difference = (difference/average) * 100.0
+                # This is the difference as a percent of expected
+                #relative_difference = (difference/float(input_length)) * 100.0
+                tbr.append((float(input_omegas[0]),
+                            float(input_length),
+                            relative_difference))
+    return tbr
+
+def heatarray_to_heatmap(heat_array, xbins, ybins, xlabel, ylabel, name):
+    masked_array = NP.ma.array(heat_array, mask=NP.isnan(heat_array))
+    masked_array = NP.transpose(masked_array)
+    print(masked_array)
+    cmap = mpl.cm.jet
+    cmap.set_bad('w',1.)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.imshow( masked_array,
+                origin='lower',
+                interpolation='none',
+                cmap=cmap)
+    plt.colorbar()
+    plt.xticks(range(len(xbins)), xbins, rotation=90)
+    plt.yticks(range(len(ybins)), ybins)
+    plt.gcf().set_size_inches(11.5,10.5)
+    plt.gcf().subplots_adjust(bottom=.20)
+    plt.gcf().subplots_adjust(left=.20)
+    # XXX replace with cur_dir
+    plt.savefig(os.path.dirname(os.path.abspath(__file__))
+                        + os.sep + name, dpi=150)
+    plt.clf()
+    plt.cla()
+
+def cur_dir(name):
+    return (os.path.dirname(os.path.abspath(__file__)) + os.sep + name)
+
 # Each dist is an array (for the reps) of lists where keys are taxa names and
 # values are lists where keys are parameter names and values are lists or
 # numbers representing parameter values
-def process_cvs_results(input, results):
+def process_csv_results(input, results):
     # pull out meandnds error
     over_one_pvals = []
+    false_positive_pvals = []
+    true_negative_pvals = []
     dist_errors = []
     for dist_key in input.keys():
         for repI in range(len(results[dist_key])):
@@ -452,10 +662,10 @@ def process_cvs_results(input, results):
                 results_omegas = results[dist_key][repI][taxa_key]["omegas"]
                 input_props = input[dist_key][taxa_key]["props"]
                 results_props = results[dist_key][repI][taxa_key]["props"]
-                input_meandnds = params_to_meandnds(    input_omegas,
-                                                        input_props)
-                results_meandnds = params_to_meandnds(  results_omegas,
-                                                        results_props)
+                input_meandnds = weighted_average(  input_omegas,
+                                                    input_props)
+                results_meandnds = weighted_average(results_omegas,
+                                                    results_props)
                 dist_errors.append(math.fabs(   input_meandnds -
                                                 results_meandnds))
                 if max(input_omegas) > 1:
@@ -467,14 +677,32 @@ def process_cvs_results(input, results):
                                                     [repI]
                                                     [taxa_key]
                                                     ["pval"])))
+                elif float(results[dist_key][repI][taxa_key]["pval"]) <= .05:
+                    false_positive_pvals.append((   max(input_omegas),
+                                                    input_props[
+                                                        input_omegas.index(
+                                                            max(input_omegas))],
+                                                    float(results   [dist_key]
+                                                                    [repI]
+                                                                    [taxa_key]
+                                                                    ["pval"])))
+                else:
+                    true_negative_pvals.append((   max(input_omegas),
+                                                    input_props[
+                                                        input_omegas.index(
+                                                            max(input_omegas))],
+                                                    float(results   [dist_key]
+                                                                    [repI]
+                                                                    [taxa_key]
+                                                                    ["pval"])))
                 #dist_errors.append((input_meandnds, results_meandnds))
     if len(over_one_pvals) != 0:
         print("Over one data (omega, prop, pval):\n", over_one_pvals)
-        heat_array, xbins, ybins  = tuple_to_heatarray( over_one_pvals,
-                                                        20,
-                                                        20,
-                                                        xtype="log")
-                                                        #xtype="linear")
+        heat_array, xbins, ybins  = tuple_to_averaged_heatarray(over_one_pvals,
+                                                                12,
+                                                                12,
+                                                                xtype="log")
+                                                                #xtype="linear")
         print(heat_array)
         masked_array = NP.ma.array(heat_array, mask=NP.isnan(heat_array))
         masked_array = NP.transpose(masked_array)
@@ -499,12 +727,77 @@ def process_cvs_results(input, results):
         #ax = plt.gca()
         #for label in ax.xaxis.get_ticklabels():
             #label.set_rotation(45)
-        plt.savefig('/home/martin/Software/Simulation/testFig.png', dpi=150)
+        # XXX replace with cur_dir
+        plt.savefig('/home/martin/Software/Simulation/meanPval.png', dpi=150)
+
+        # True Positives:
+        heat_array, xbins, ybins  = tuple_to_true_positive_ratio_heatarray( over_one_pvals,
+                                                        12,
+                                                        12,
+                                                        xtype="log")
+                                                        #xtype="linear")
+        print("true positive ratio: \n", heat_array)
+        masked_array = NP.ma.array(heat_array, mask=NP.isnan(heat_array))
+        masked_array = NP.transpose(masked_array)
+        print(masked_array)
+        cmap = mpl.cm.jet
+        cmap.set_bad('w',1.)
+        plt.xlabel('Omega value')
+        plt.ylabel('Omega over one proportion')
+        plt.imshow( masked_array,
+                    origin='lower',
+                    interpolation='none',
+                    cmap=cmap)
+                    #extent=[2.5,4.5,2.5,4.5])
+        #plt.colorbar()
+        plt.xticks(range(len(xbins)), xbins, rotation=90)
+        plt.yticks(range(len(ybins)), ybins)
+        #plt.gcf().set_size_inches(11.5,10.5)
+        #plt.gcf().subplots_adjust(bottom=.20)
+        #plt.gcf().subplots_adjust(left=.20)
+        # XXX replace with cur_dir
+        plt.savefig('/home/martin/Software/Simulation/truePosRatio.png', dpi=150)
+
+        # False Positives:
+        if len(false_positive_pvals) > 0:
+            heat_array, xbins, ybins  = tuple_to_false_positive_ratio_heatarray(
+                                            true_negative_pvals,
+                                            false_positive_pvals,
+                                            12,
+                                            12,
+                                            xtype="log")
+                                            #xtype="linear")
+            print("false positives: \n", false_positive_pvals)
+            print("false positive ratio: \n", heat_array)
+            masked_array = NP.ma.array(heat_array, mask=NP.isnan(heat_array))
+            masked_array = NP.transpose(masked_array)
+            print(masked_array)
+            cmap = mpl.cm.jet
+            cmap.set_bad('w',1.)
+            plt.xlabel('Omega value')
+            plt.ylabel('Omega over one proportion')
+            plt.imshow( masked_array,
+                        origin='lower',
+                        interpolation='none',
+                        cmap=cmap)
+                        #extent=[2.5,4.5,2.5,4.5])
+            #plt.colorbar()
+            plt.xticks(range(len(xbins)), xbins, rotation=90)
+            plt.yticks(range(len(ybins)), ybins)
+            #plt.gcf().set_size_inches(11.5,10.5)
+            #plt.gcf().subplots_adjust(bottom=.20)
+            #plt.gcf().subplots_adjust(left=.20)
+            # XXX replace with cur_dir
+            plt.savefig('/home/martin/Software/Simulation/falsePosRatio.png', dpi=150)
+    print("Input: ", input)
+    print("Results: ", results)
     print("Dist Errors: ", dist_errors)
     dist_mean_error = NP.mean(dist_errors)
     dist_std_error = NP.std(dist_errors)
     print("mean: ", dist_mean_error)
     print("stddev: ", dist_std_error)
+    plt.clf()
+    plt.cla()
     #print(results)
 
 
@@ -554,6 +847,8 @@ else:
 
 inputParameterSets = {}
 results = {}
+results_with_lengths = {}
+inputs_with_lengths = {}
 
 sim_time = 0
 bsrel_time = 0
@@ -585,20 +880,52 @@ while dist_done < numDist:
     for this_dist in range(min(numDist-dist_done, len(node))):
         dist_num = this_dist + dist_done
         this_sets_results = []
+        this_sets_len_results = []
         for rep in range(int(numReps)):
-            #this_sets_results.append(recover_fit(num_taxa, outFile + "." + str(dist), dist, rep))
+            this_sets_len_results.append(recover_fit(   num_taxa,
+                                                        outFile
+                                                            + "."
+                                                            + str(dist_num),
+                                                        this_dist,
+                                                        rep))
             this_sets_results.append(recover_csv(   num_taxa,
                                                     outFile + "."
                                                             + str(dist_num),
                                                     this_dist,
                                                     rep))
         results[str(dist_num)] = this_sets_results
+        this_sets_len_inputs = recover_simulated(   num_taxa,
+                                                    outFile
+                                                        + "."
+                                                        + str(dist_num),
+                                                    this_dist,
+                                                    rep)
+        inputs_with_lengths[str(dist_num)] = this_sets_len_inputs
+        results_with_lengths[str(dist_num)] = this_sets_len_results
     dist_done += min(numDist-dist_done, len(node))
     end = time.time()
     python_time += end - start
 #process_results(inputParameterSets, results)
+
+# recover the simulated length params
+print("csv results: \n", results)
+print("input with lengths: \n", inputs_with_lengths)
+# recover the fit file: results_with_lengths
+print("results with lengths: \n", results_with_lengths)
+# XXX process the lengths
+#length_errors = length_error(inputs_with_lengths, results_with_lengths)
+length_errors = length_error(inputParameterSets, results)
+print("length results:\n", length_errors)
+length_heatarray, len_xbins, len_ybins = tuple_to_averaged_heatarray(length_errors, 12, 12)
+print("\nLength heat array:\n", length_heatarray)
+heatarray_to_heatmap(   length_heatarray,
+                        len_xbins,
+                        len_ybins,
+                        "Omega value",
+                        "Simulated Branch Length",
+                        "lengthError.png")
 start = time.time()
-process_cvs_results(inputParameterSets, results)
+process_csv_results(inputParameterSets, results)
 end = time.time()
 python_time += end - start
 
