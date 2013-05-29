@@ -608,9 +608,9 @@ def length_error(input, results):
                 #difference = float(input_length) - float(result_length)
                 average = (float(input_length) + float(result_length))/2
                 # This would be the relative difference between the two
-                relative_difference = (difference/average) * 100.0
+                #relative_difference = (difference/average) * 100.0
                 # This is the difference as a percent of expected
-                #relative_difference = (difference/float(input_length)) * 100.0
+                relative_difference = (difference/float(input_length)) * 100.0
                 tbr.append((float(input_omegas[0]),
                             float(input_length),
                             relative_difference))
