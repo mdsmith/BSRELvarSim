@@ -2,6 +2,7 @@
 # XXX make an output directory an optional input
 # make simulation and processing separate programs/libraries
 
+from treegen import get_tree, get_unrooted_tree
 import sys
 import math
 import numpy as NP
@@ -20,59 +21,59 @@ num_taxa = 4
 #rate_class_limit = True
 rate_class_limit = False
 
-def get_tree(num_taxa):
-    return  ("("
-            + gen_newick([a for a in range(1, num_taxa + 1)], (2*num_taxa) - 1)
-            + ")")
-
-def gen_newick(part, number):
-    if len(part) == 2:
-        return  ("("
-                + str(part[0])
-                + ","
-                + str(part[1])
-                + ")"
-                + str(number))
-    else:
-        return  ("("
-                + gen_newick(   part[:int(len(part)/2)],
-                                number - int(len(part)/2))
-                + ","
-                + gen_newick(part[int(len(part)/2):], number - 1)
-                + ")"
-                + str(number))
-
-def get_unrooted_tree(num_taxa):
-    return  ("("
-            + gen_unrooted_newick(  [a for a in range(1, num_taxa + 1)],
-                                    (2*num_taxa)-1,
-                                    (2*num_taxa)-3)
-            + ")")
-
-def gen_unrooted_newick(part, number, max):
-    if len(part) == 2:
-        if number > max:
-            return  str(part[0]) + "," + str(part[1])
-        else:
-            return  "(" + str(part[0]) + "," + str(part[1]) + ")" + \
-                    str(number)
-    else:
-        if number > max:
-            return  (gen_unrooted_newick(part[:int(len(part)/2)], number -
-                    int(len(part)/2), max)
-                    + ","
-                    + gen_unrooted_newick(  part[int(len(part)/2):],
-                                            number - 1,
-                                            max))
-        else:
-            return  ("("
-                    + gen_unrooted_newick(  part[:int(len(part)/2)],
-                                            number - int(len(part)/2),
-                                            max)
-                    + ","
-                    + gen_unrooted_newick(part[int(len(part)/2):], number - 1, max)
-                    + ")"
-                    + str(number))
+#def get_tree(num_taxa):
+#    return  ("("
+#            + gen_newick([a for a in range(1, num_taxa + 1)], (2*num_taxa) - 1)
+#            + ")")
+#
+#def gen_newick(part, number):
+#    if len(part) == 2:
+#        return  ("("
+#                + str(part[0])
+#                + ","
+#                + str(part[1])
+#                + ")"
+#                + str(number))
+#    else:
+#        return  ("("
+#                + gen_newick(   part[:int(len(part)/2)],
+#                                number - int(len(part)/2))
+#                + ","
+#                + gen_newick(part[int(len(part)/2):], number - 1)
+#                + ")"
+#                + str(number))
+#
+#def get_unrooted_tree(num_taxa):
+#    return  ("("
+#            + gen_unrooted_newick(  [a for a in range(1, num_taxa + 1)],
+#                                    (2*num_taxa)-1,
+#                                    (2*num_taxa)-3)
+#            + ")")
+#
+#def gen_unrooted_newick(part, number, max):
+#    if len(part) == 2:
+#        if number > max:
+#            return  str(part[0]) + "," + str(part[1])
+#        else:
+#            return  "(" + str(part[0]) + "," + str(part[1]) + ")" + \
+#                    str(number)
+#    else:
+#        if number > max:
+#            return  (gen_unrooted_newick(part[:int(len(part)/2)], number -
+#                    int(len(part)/2), max)
+#                    + ","
+#                    + gen_unrooted_newick(  part[int(len(part)/2):],
+#                                            number - 1,
+#                                            max))
+#        else:
+#            return  ("("
+#                    + gen_unrooted_newick(  part[:int(len(part)/2)],
+#                                            number - int(len(part)/2),
+#                                            max)
+#                    + ","
+#                    + gen_unrooted_newick(part[int(len(part)/2):], number - 1, max)
+#                    + ")"
+#                    + str(number))
 
 def generate_settings(num_taxa, out_name):
     this_set = {}
