@@ -1,4 +1,6 @@
 #! /usr/bin/env python
+# XXX make an output directory an optional input
+# make simulation and processing separate programs/libraries
 
 import sys
 import math
@@ -15,7 +17,8 @@ node = range(13,31)
 node_processes = {}
 
 num_taxa = 4
-rate_class_limit = True
+#rate_class_limit = True
+rate_class_limit = False
 
 def get_tree(num_taxa):
     return  ("("
@@ -130,12 +133,12 @@ def params_to_string(param_list):
     entry += "}\n},\n"
     return entry
 
+# redo these distributions properly, remove the prop vs omega sort.
 def generate_taxa(tax_name, num_rate_classes):
     entry = {}
     entry["name"] = str(tax_name)
-    # XXX re-enable
-    #len = NP.random.exponential(.25, 1)[0]
-    length = 0.5
+    length = NP.random.exponential(.25)
+    #length = 0.5
     entry["length"] = length
     omegas = sorted([NP.random.exponential((.5 + (10*i))) for i in range(num_rate_classes)])
 
@@ -147,22 +150,36 @@ def generate_taxa(tax_name, num_rate_classes):
             under_one == True
         if omega > 1.0:
             num_over_one += 1
-    if under_one == False:
-        omegas[0] = omegas[0] % 1
+    # XXX this makes sure that there is at least one omega less than one
+    #if under_one == False:
+        #omegas[0] = omegas[0] % 1
     if num_over_one > 1:
         for omegaI in range(len(omegas) - 1):
             omegas[omegaI] = omegas[omegaI] % 1
 
     #omegas = [.5*i for i in range(1,num_rate_classes + 1)]
     entry["omegas"] = omegas
+
     props = []
-    remainingProp = 1
-    for i in range(num_rate_classes - 1):
-        props.append(max(0.1, (1 - NP.random.exponential(.5, 1)[0])) * remainingProp)
-        #props.append(0.9 * remainingProp)
-        remainingProp -= props[i]
-    props.append(1 - sum(props))
-    props = sorted(props)[::-1]
+    if len(omegas) > 1:
+        starting_props = sorted(NP.random.rand(num_rate_classes - 1))
+        last = -1
+        props.append(starting_props[0])
+        for p in starting_props:
+            if last != -1:
+                props.append(p - last)
+            last = p
+        props.append(1 - starting_props[-1])
+    else:
+        props.append(1)
+
+    #remainingProp = 1
+    #for i in range(num_rate_classes - 1):
+        #props.append(max(0.1, (1 - NP.random.exponential(.5, 1)[0])) * remainingProp)
+        ##props.append(0.9 * remainingProp)
+        #remainingProp -= props[i]
+    #props.append(1 - sum(props))
+    #props = sorted(props)[::-1]
     entry["props"] = props
     return entry
 
@@ -287,7 +304,10 @@ def recover_csv(num_taxa, rec_file_name, dist, rep):
         over_one = 0
         results[line[0]]["pval"] = line[7]
         if (line[3]) != "0":
-            results[line[0]]["omegas"].append(line[3])
+            if line[3] == "inf":
+                results[line[0]]["omegas"].append(10000)
+            else:
+                results[line[0]]["omegas"].append(line[3])
             results[line[0]]["props"].append(line[4])
             over_one = 1
         for oI in range(1, (int(line[2]) + 1 - int(over_one))):
@@ -480,16 +500,16 @@ def gen_semi_log_bins(min, max, num):
 
 # false positive to the ratio of false positives/input negative aka false
 # positive/false positive + true negative
-def tuple_to_false_positive_ratio_heatarray(  true_negative_results,
-                                        false_positive_results,
-                                        x_num_bins,
-                                        y_num_bins,
-                                        xmax=1,
-                                        xmin=0,
-                                        ymax=1,
-                                        ymin=0,
-                                        xtype="linear",
-                                        ytype="linear"):
+def tuple_to_false_positive_ratio_heatarray(true_negative_results,
+                                            false_positive_results,
+                                            x_num_bins,
+                                            y_num_bins,
+                                            xmax=1,
+                                            xmin=0,
+                                            ymax=1,
+                                            ymin=0,
+                                            xtype="linear",
+                                            ytype="linear"):
     xmin = min([x for x,y,p in false_positive_results])
     xmax = max([x for x,y,p in false_positive_results])
     ymin = min([y for x,y,p in false_positive_results])
@@ -616,7 +636,13 @@ def length_error(input, results):
                             relative_difference))
     return tbr
 
-def heatarray_to_heatmap(heat_array, xbins, ybins, xlabel, ylabel, name):
+def heatarray_to_heatmap(   heat_array,
+                            xbins,
+                            ybins,
+                            xlabel,
+                            ylabel,
+                            figure_title,
+                            name):
     masked_array = NP.ma.array(heat_array, mask=NP.isnan(heat_array))
     masked_array = NP.transpose(masked_array)
     print(masked_array)
@@ -629,14 +655,23 @@ def heatarray_to_heatmap(heat_array, xbins, ybins, xlabel, ylabel, name):
                 interpolation='none',
                 cmap=cmap)
     plt.colorbar()
-    plt.xticks(range(len(xbins)), xbins, rotation=90)
-    plt.yticks(range(len(ybins)), ybins)
-    plt.gcf().set_size_inches(11.5,10.5)
+    #print("xbins:")
+    #print(xbins)
+    #xbin_strings = [string(x)%0.1f for x in xbins)]
+
+    xbin_strings = ["%0.3f" % x for x in xbins]
+    ybin_strings = ["%0.3f" % y for y in ybins]
+    plt.xticks(range(len(xbin_strings)), xbin_strings, rotation=90)
+    plt.yticks(range(len(ybin_strings)), ybin_strings)
+
+    #plt.gcf().set_size_inches(11.5,10.5)
+    plt.gcf().set_size_inches(5,5)
     plt.gcf().subplots_adjust(bottom=.20)
     plt.gcf().subplots_adjust(left=.20)
+    plt.gcf().suptitle(figure_title)
     # XXX replace with cur_dir
     plt.savefig(os.path.dirname(os.path.abspath(__file__))
-                        + os.sep + name, dpi=150)
+                        + os.sep + name, dpi=300)
     plt.clf()
     plt.cla()
 
@@ -719,16 +754,25 @@ def process_csv_results(input, results):
                     cmap=cmap)
                     #extent=[2.5,4.5,2.5,4.5])
         plt.colorbar()
-        plt.xticks(range(len(xbins)), xbins, rotation=90)
-        plt.yticks(range(len(ybins)), ybins)
-        plt.gcf().set_size_inches(11.5,10.5)
+
+        xbin_strings = ["%0.3f" % x for x in xbins]
+        ybin_strings = ["%0.3f" % y for y in ybins]
+        plt.xticks(range(len(xbin_strings)), xbin_strings, rotation=90)
+        plt.yticks(range(len(ybin_strings)), ybin_strings)
+
+        #plt.xticks(range(len(xbins)), xbins, rotation=90)
+        #plt.yticks(range(len(ybins)), ybins)
+        plt.gcf().set_size_inches(5,5)
         plt.gcf().subplots_adjust(bottom=.20)
         plt.gcf().subplots_adjust(left=.20)
+        plt.gcf().suptitle( "Mean p-vlaue for Estimates of Positive " \
+                            "Selection")
         #ax = plt.gca()
         #for label in ax.xaxis.get_ticklabels():
             #label.set_rotation(45)
         # XXX replace with cur_dir
-        plt.savefig('/home/martin/Software/Simulation/meanPval.png', dpi=150)
+        plt.savefig('/home/martin/Software/Simulation/meanPval.png', dpi=300)
+        plt.clf()
 
         # True Positives:
         heat_array, xbins, ybins  = tuple_to_true_positive_ratio_heatarray( over_one_pvals,
@@ -749,14 +793,23 @@ def process_csv_results(input, results):
                     interpolation='none',
                     cmap=cmap)
                     #extent=[2.5,4.5,2.5,4.5])
-        #plt.colorbar()
-        plt.xticks(range(len(xbins)), xbins, rotation=90)
-        plt.yticks(range(len(ybins)), ybins)
-        #plt.gcf().set_size_inches(11.5,10.5)
-        #plt.gcf().subplots_adjust(bottom=.20)
-        #plt.gcf().subplots_adjust(left=.20)
+        plt.colorbar()
+
+        xbin_strings = ["%0.3f" % x for x in xbins]
+        ybin_strings = ["%0.3f" % y for y in ybins]
+        plt.xticks(range(len(xbin_strings)), xbin_strings, rotation=90)
+        plt.yticks(range(len(ybin_strings)), ybin_strings)
+
+        #plt.xticks(range(len(xbins)), xbins, rotation=90)
+        #plt.yticks(range(len(ybins)), ybins)
+        plt.gcf().suptitle("True Positive Rate")
+        plt.gcf().set_size_inches(5,5)
+        plt.gcf().subplots_adjust(bottom=.20)
+        plt.gcf().subplots_adjust(left=.20)
         # XXX replace with cur_dir
-        plt.savefig('/home/martin/Software/Simulation/truePosRatio.png', dpi=150)
+        plt.savefig('/home/martin/Software/Simulation/truePosRatio.png',
+        dpi=300)
+        plt.clf()
 
         # False Positives:
         if len(false_positive_pvals) > 0:
@@ -775,20 +828,29 @@ def process_csv_results(input, results):
             cmap = mpl.cm.jet
             cmap.set_bad('w',1.)
             plt.xlabel('Omega value')
-            plt.ylabel('Omega over one proportion')
+            plt.ylabel('Omega proportion')
             plt.imshow( masked_array,
                         origin='lower',
                         interpolation='none',
                         cmap=cmap)
                         #extent=[2.5,4.5,2.5,4.5])
-            #plt.colorbar()
-            plt.xticks(range(len(xbins)), xbins, rotation=90)
-            plt.yticks(range(len(ybins)), ybins)
-            #plt.gcf().set_size_inches(11.5,10.5)
-            #plt.gcf().subplots_adjust(bottom=.20)
-            #plt.gcf().subplots_adjust(left=.20)
+            plt.colorbar()
+
+            xbin_strings = ["%0.3f" % x for x in xbins]
+            ybin_strings = ["%0.3f" % y for y in ybins]
+            plt.xticks(range(len(xbin_strings)), xbin_strings, rotation=90)
+            plt.yticks(range(len(ybin_strings)), ybin_strings)
+
+            #plt.xticks(range(len(xbins)), xbins, rotation=90)
+            #plt.yticks(range(len(ybins)), ybins)
+            plt.gcf().set_size_inches(5,5)
+            plt.gcf().subplots_adjust(bottom=.20)
+            plt.gcf().subplots_adjust(left=.20)
             # XXX replace with cur_dir
-            plt.savefig('/home/martin/Software/Simulation/falsePosRatio.png', dpi=150)
+            plt.gcf().suptitle("False Positive Rate")
+            plt.savefig('/home/martin/Software/Simulation/falsePosRatio.png',
+            dpi=300)
+            plt.clf()
     print("Input: ", input)
     print("Results: ", results)
     print("Dist Errors: ", dist_errors)
@@ -923,6 +985,8 @@ heatarray_to_heatmap(   length_heatarray,
                         len_ybins,
                         "Omega value",
                         "Simulated Branch Length",
+                        "Branch Length Estimation Error Relative to Real " \
+                        "Length",
                         "lengthError.png")
 start = time.time()
 process_csv_results(inputParameterSets, results)
