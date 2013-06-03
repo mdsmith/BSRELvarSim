@@ -682,8 +682,12 @@ python_time = 0
 
 #for dist in range(int(numDist)):
 dist_done = 0
+
+# Write settings
+# XXX pull out to library
+start = time.time()
+dist_done = 0
 while dist_done < numDist:
-    start = time.time()
     for this_dist in range(min(numDist-dist_done, len(node))):
         dist_num = this_dist + dist_done
         if rate_class_limit == False:
@@ -697,13 +701,35 @@ while dist_done < numDist:
                                             numReps,
                                             lenSeqs,
                                             1)
+        # XXX This needs to go...
         inputParameterSets[str(dist_num)] = this_set
+    dist_done += min(numDist-dist_done, len(node))
+end = time.time()
+sim_time += end - start
+
+# Run simulator
+# XXX pull out to library
+# XXX if prev steps aren't done infer necessary inputs
+start = time.time()
+dist_done = 0
+while dist_done < numDist:
+    for this_dist in range(min(numDist-dist_done, len(node))):
+        dist_num = this_dist + dist_done
         simulate(outFile + "." + str(dist_num), this_dist, node_processes)
     for sub_p in node_processes.values():
         sub_p.wait()
-    end = time.time()
-    sim_time += end - start
-    start = time.time()
+    dist_done += min(numDist-dist_done, len(node))
+end = time.time()
+sim_time += end - start
+
+# Run BSREL
+# XXX pull out to library
+# XXX if prev steps aren't done infer necessary inputs
+    # XXX maybe include an option to specify these as input?
+    # e.g., have 100 simulations, run BSREL on 3...
+dist_done = 0
+start = time.time()
+while dist_done < numDist:
     for this_dist in range(min(numDist-dist_done, len(node))):
         dist_num = this_dist + dist_done
         for rep in range(int(numReps)):
@@ -713,9 +739,16 @@ while dist_done < numDist:
                         node_processes)
     for sub_p in node_processes.values():
         sub_p.wait()
-    end = time.time()
-    bsrel_time += end - start
-    start = time.time()
+    dist_done += min(numDist-dist_done, len(node))
+end = time.time()
+bsrel_time += end - start
+
+# XXX Process results
+# XXX pull out to library
+# XXX if prev steps aren't done infer necessary inputs
+start = time.time()
+dist_done = 0
+while dist_done < numDist:
     for this_dist in range(min(numDist-dist_done, len(node))):
         dist_num = this_dist + dist_done
         this_sets_results = []
@@ -742,8 +775,73 @@ while dist_done < numDist:
         inputs_with_lengths[str(dist_num)] = this_sets_len_inputs
         results_with_lengths[str(dist_num)] = this_sets_len_results
     dist_done += min(numDist-dist_done, len(node))
-    end = time.time()
-    python_time += end - start
+end = time.time()
+python_time += end - start
+
+#while dist_done < numDist:
+#    start = time.time()
+#    for this_dist in range(min(numDist-dist_done, len(node))):
+#        dist_num = this_dist + dist_done
+#        if rate_class_limit == False:
+#            this_set = generate_settings(   num_taxa,
+#                                            outFile +  "." + str(dist_num),
+#                                            numReps,
+#                                            lenSeqs)
+#        else:
+#            this_set = generate_settings(   num_taxa,
+#                                            outFile +  "." + str(dist_num),
+#                                            numReps,
+#                                            lenSeqs,
+#                                            1)
+#        inputParameterSets[str(dist_num)] = this_set
+#        simulate(outFile + "." + str(dist_num), this_dist, node_processes)
+#    for sub_p in node_processes.values():
+#        sub_p.wait()
+#    end = time.time()
+#    sim_time += end - start
+
+#    start = time.time()
+#    for this_dist in range(min(numDist-dist_done, len(node))):
+#        dist_num = this_dist + dist_done
+#        for rep in range(int(numReps)):
+#            run_BSREL(  outFile + "." + str(dist_num),
+#                        this_dist,
+#                        rep,
+#                        node_processes)
+#    for sub_p in node_processes.values():
+#        sub_p.wait()
+#    end = time.time()
+#    bsrel_time += end - start
+
+#    start = time.time()
+#    for this_dist in range(min(numDist-dist_done, len(node))):
+#        dist_num = this_dist + dist_done
+#        this_sets_results = []
+#        this_sets_len_results = []
+#        for rep in range(int(numReps)):
+#            this_sets_len_results.append(recover_fit(   num_taxa,
+#                                                        outFile
+#                                                            + "."
+#                                                            + str(dist_num),
+#                                                        this_dist,
+#                                                        rep))
+#            this_sets_results.append(recover_csv(   num_taxa,
+#                                                    outFile + "."
+#                                                            + str(dist_num),
+#                                                    this_dist,
+#                                                    rep))
+#        results[str(dist_num)] = this_sets_results
+#        this_sets_len_inputs = recover_simulated(   num_taxa,
+#                                                    outFile
+#                                                        + "."
+#                                                        + str(dist_num),
+#                                                    this_dist,
+#                                                    rep)
+#        inputs_with_lengths[str(dist_num)] = this_sets_len_inputs
+#        results_with_lengths[str(dist_num)] = this_sets_len_results
+#    dist_done += min(numDist-dist_done, len(node))
+#    end = time.time()
+#    python_time += end - start
 #process_results(inputParameterSets, results)
 
 # recover the simulated length params
