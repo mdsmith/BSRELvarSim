@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 # XXX have node range passed in as argument?
+# XXX make fully independent
 
 import math
 import numpy as NP

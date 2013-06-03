@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# XXX make fully independent
 
 import os, subprocess, time
 node = range(13,31)
