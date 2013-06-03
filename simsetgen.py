@@ -2,6 +2,7 @@
 # XXX have node range passed in as argument?
 # XXX make fully independent
 
+import sys
 import math
 import numpy as NP
 from treegen import get_unrooted_tree
@@ -14,7 +15,7 @@ def generate_settings(num_taxa, out_name, numReps, lenSeqs, rate_classes_per_bra
     else:
         rate_class_assignments = [  math.ceil(NP.random.exponential(.75))
                                     for _ in range((2*num_taxa) - 2)]
-    print(rate_class_assignments)
+    #print(rate_class_assignments)
     #rate_class_assignments = [ 1 for _ in range((2*num_taxa) - 2)]
     out = open(out_name, 'w')
     buffer = []
@@ -117,7 +118,6 @@ def generate_taxa(tax_name, num_rate_classes):
     return entry
 
 # XXX source input from arguments
-# XXX make the argument naming scheme consistent
 def generate_all_settings(  num_taxa,
                             num_dist,
                             num_reps,
@@ -135,27 +135,29 @@ def generate_all_settings(  num_taxa,
     # XXX this is a temporary holdover
     return inputParameterSets
 
-#    dist_done = 0
-#    while dist_done < num_dist:
-#        for this_dist in range(min(num_dist-dist_done, len(node))):
-#            dist_num = this_dist + dist_done
-#            if rate_class_limit == False:
-#                this_set = generate_settings(   num_taxa,
-#                                                outFile +  "." + str(dist_num),
-#                                                numReps,
-#                                                lenSeqs)
-#            else:
-#                this_set = generate_settings(   num_taxa,
-#                                                outFile +  "." + str(dist_num),
-#                                                numReps,
-#                                                lenSeqs,
-#                                                1)
-#            # XXX This needs to go...
-#            inputParameterSets[str(dist_num)] = this_set
-#        dist_done += min(numDist-dist_done, len(node))
-
-
 if __name__ == "__main__":
-    # XXX this is way not working yet
-    generate_all_settings()
-
+    if len(sys.argv) == 6:
+        num_taxa, num_dist, num_reps, len_seqs, out_file = sys.argv[1:6]
+        rate_classes_per_branch = -1
+        if len(sys.argv) == 7:
+            rate_classes_per_branch = sys.argv[-1]
+        generate_all_settings(  int(num_taxa),
+                                int(num_dist),
+                                int(num_reps),
+                                int(len_seqs),
+                                out_file,
+                                int(rate_classes_per_branch))
+    else:
+        print(sys.argv, file=sys.stderr)
+        print(  "Valid usage:\n" \
+                "\t- simsetgen <num_taxa> <num_dist> <num_reps> " \
+                "<len_seqs> [<rate_classes_per_branch>]\n" \
+                "Where:\n" \
+                "\t- <num_taxa>: number of taxa (power of two)\n" \
+                "\t- <num_dist>: number of distributions\n" \
+                "\t- <num_reps>: number of repetitions to simulate\n" \
+                "\t- <len_seqs>: length of sequences to simulate\n" \
+                "\t- <out_file>: output filename (may include path)\n" \
+                "\t- [<rate_classes_per_branch>]: number of rate classes " \
+                "per branch\n",
+                file=sys.stderr)

@@ -674,7 +674,6 @@ else:
     lenSeqs = sys.argv[3] # the number of codons generated
     outFile = sys.argv[4] # the name of the outfile
 
-inputParameterSets = {}
 results = {}
 results_with_lengths = {}
 inputs_with_lengths = {}
@@ -684,34 +683,14 @@ bsrel_time = 0
 python_time = 0
 
 # Write settings
-# XXX pull out to library
 start = time.time()
-
+# XXX remove the return once the parser library is separated
 inputParameterSets = generate_all_settings( num_taxa,
                                             numDist,
                                             numReps,
                                             lenSeqs,
                                             outFile,
                                             rate_classes_per_branch)
-
-#dist_done = 0
-#while dist_done < numDist:
-#    for this_dist in range(min(numDist-dist_done, len(node))):
-#        dist_num = this_dist + dist_done
-#        if rate_class_limit == False:
-#            this_set = generate_settings(   num_taxa,
-#                                            outFile +  "." + str(dist_num),
-#                                            numReps,
-#                                            lenSeqs)
-#        else:
-#            this_set = generate_settings(   num_taxa,
-#                                            outFile +  "." + str(dist_num),
-#                                            numReps,
-#                                            lenSeqs,
-#                                            1)
-#        # XXX This needs to go...
-#        inputParameterSets[str(dist_num)] = this_set
-#    dist_done += min(numDist-dist_done, len(node))
 end = time.time()
 sim_time += end - start
 
@@ -758,6 +737,7 @@ bsrel_time += end - start
 # XXX Process results
 # XXX pull out to library
 # XXX if prev steps aren't done infer necessary inputs
+# XXX make a bunch of parsers in a parsing library
 start = time.time()
 dist_done = 0
 while dist_done < numDist:
@@ -797,6 +777,12 @@ print("input with lengths: \n", inputs_with_lengths)
 print("results with lengths: \n", results_with_lengths)
 # XXX process the lengths
 #length_errors = length_error(inputs_with_lengths, results_with_lengths)
+
+print("inputs with lengths:")
+print(inputs_with_lengths)
+print("inputParameterSets")
+print(inputParameterSets)
+
 length_errors = length_error(inputParameterSets, results)
 print("length results:\n", length_errors)
 length_heatarray, len_xbins, len_ybins = tuple_to_averaged_heatarray(length_errors, 12, 12)
