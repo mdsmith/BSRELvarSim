@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 # XXX make an output directory an optional input
-# make simulation and processing separate programs/libraries
+# XXX make simulation and processing separate programs/libraries
 
 from treegen import get_tree, get_unrooted_tree
 from simsetgen import generate_settings, simulate
@@ -443,6 +443,8 @@ def cur_dir(name):
 # Each dist is an array (for the reps) of lists where keys are taxa names and
 # values are lists where keys are parameter names and values are lists or
 # numbers representing parameter values
+
+# XXX break out and make independent the graphing stuff...
 def process_csv_results(input, results):
     # pull out meandnds error
     over_one_pvals = []
