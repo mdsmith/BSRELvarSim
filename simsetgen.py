@@ -5,12 +5,6 @@
 import math
 import numpy as NP
 from treegen import get_unrooted_tree
-import os
-import subprocess
-import time
-
-node_list = range(13,31)
-local_processes = {}
 
 def generate_settings(num_taxa, out_name, numReps, lenSeqs, rate_classes_per_branch = -1):
     this_set = {}
@@ -122,44 +116,46 @@ def generate_taxa(tax_name, num_rate_classes):
     entry["props"] = props
     return entry
 
-def simulate(   set_file_name,
-                nodeI,
-                node_processes = local_processes,
-                nodes = node_list):
-    batchfile = open(set_file_name + ".bf", 'w')
-    batchfile.write('inputRedirect = {};\n\n')
-    batchfile.write('inputRedirect["00"]="'
-                    + os.path.dirname(os.path.abspath(__file__))
-                    + "/"
-                    + set_file_name
-                    + '";\n')
-    batchfile.write('inputRedirect["01"]="'
-                    + os.path.dirname(os.path.abspath(__file__))
-                    + "/"
-                    + set_file_name
-                    + '.sim";\n')
-    batchfile.write('ExecuteAFile' \
-                    '("/data/veg/HSV/Simulation/01Initial/' \
-                    'GenericSimulator.bf", inputRedirect);')
-    batchfile.close()
-    call_list = [   'bpsh',
-                    str(nodes[nodeI]),
-                    'HYPHYMP',
-                    os.path.dirname(os.path.abspath(__file__))
-                        + os.sep
-                        + set_file_name
-                        + '.bf']
-    output_file = open( os.path.dirname(os.path.abspath(__file__))
-                        + os.sep
-                        + set_file_name
-                        + '.sim'
-                        + '.txt', 'w')
-    node_processes[str(nodeI)] = subprocess.Popen( call_list,
-                                                    stdout=output_file)
-    time.sleep(1)
+# XXX source input from arguments
+# XXX make the argument naming scheme consistent
+def generate_all_settings(  num_taxa,
+                            num_dist,
+                            num_reps,
+                            len_seqs,
+                            out_file,
+                            rate_classes_per_branch = -1):
+    inputParameterSets = {}
+    for this_dist in range(num_dist):
+        this_set = generate_settings(   num_taxa,
+                                        out_file +  "." + str(this_dist),
+                                        num_reps,
+                                        len_seqs,
+                                        rate_classes_per_branch)
+        inputParameterSets[str(this_dist)] = this_set
+    # XXX this is a temporary holdover
+    return inputParameterSets
 
-def runSimulation():
-    return 0
+#    dist_done = 0
+#    while dist_done < num_dist:
+#        for this_dist in range(min(num_dist-dist_done, len(node))):
+#            dist_num = this_dist + dist_done
+#            if rate_class_limit == False:
+#                this_set = generate_settings(   num_taxa,
+#                                                outFile +  "." + str(dist_num),
+#                                                numReps,
+#                                                lenSeqs)
+#            else:
+#                this_set = generate_settings(   num_taxa,
+#                                                outFile +  "." + str(dist_num),
+#                                                numReps,
+#                                                lenSeqs,
+#                                                1)
+#            # XXX This needs to go...
+#            inputParameterSets[str(dist_num)] = this_set
+#        dist_done += min(numDist-dist_done, len(node))
+
 
 if __name__ == "__main__":
-    runSimulation()
+    # XXX this is way not working yet
+    generate_all_settings()
+

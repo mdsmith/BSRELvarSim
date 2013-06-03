@@ -3,7 +3,8 @@
 # XXX make simulation and processing separate programs/libraries
 
 from treegen import get_tree, get_unrooted_tree
-from simsetgen import generate_settings, simulate
+from simsetgen import generate_all_settings
+from simrun import simulate
 from bsrelrun import run_BSREL
 import sys
 import math
@@ -21,7 +22,9 @@ node_processes = {}
 
 num_taxa = 4
 #rate_class_limit = True
-rate_class_limit = False
+#rate_class_limit = False
+# -1 indicates no limit, draw at random
+rate_classes_per_branch = -1
 
 # return a dict of the different taxa (which are themselves dicts
 def recover_fit(num_taxa, rec_file_name, dist, rep):
@@ -680,30 +683,35 @@ sim_time = 0
 bsrel_time = 0
 python_time = 0
 
-#for dist in range(int(numDist)):
-dist_done = 0
-
 # Write settings
 # XXX pull out to library
 start = time.time()
-dist_done = 0
-while dist_done < numDist:
-    for this_dist in range(min(numDist-dist_done, len(node))):
-        dist_num = this_dist + dist_done
-        if rate_class_limit == False:
-            this_set = generate_settings(   num_taxa,
-                                            outFile +  "." + str(dist_num),
-                                            numReps,
-                                            lenSeqs)
-        else:
-            this_set = generate_settings(   num_taxa,
-                                            outFile +  "." + str(dist_num),
+
+inputParameterSets = generate_all_settings( num_taxa,
+                                            numDist,
                                             numReps,
                                             lenSeqs,
-                                            1)
-        # XXX This needs to go...
-        inputParameterSets[str(dist_num)] = this_set
-    dist_done += min(numDist-dist_done, len(node))
+                                            outFile,
+                                            rate_classes_per_branch)
+
+#dist_done = 0
+#while dist_done < numDist:
+#    for this_dist in range(min(numDist-dist_done, len(node))):
+#        dist_num = this_dist + dist_done
+#        if rate_class_limit == False:
+#            this_set = generate_settings(   num_taxa,
+#                                            outFile +  "." + str(dist_num),
+#                                            numReps,
+#                                            lenSeqs)
+#        else:
+#            this_set = generate_settings(   num_taxa,
+#                                            outFile +  "." + str(dist_num),
+#                                            numReps,
+#                                            lenSeqs,
+#                                            1)
+#        # XXX This needs to go...
+#        inputParameterSets[str(dist_num)] = this_set
+#    dist_done += min(numDist-dist_done, len(node))
 end = time.time()
 sim_time += end - start
 
