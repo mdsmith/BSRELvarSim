@@ -715,7 +715,10 @@ dist_done = 0
 while dist_done < numDist:
     for this_dist in range(min(numDist-dist_done, len(node))):
         dist_num = this_dist + dist_done
-        simulate(outFile + "." + str(dist_num), this_dist, node_processes)
+        simulate(   outFile + "." + str(dist_num),
+                    this_dist,
+                    node_processes,
+                    node)
     for sub_p in node_processes.values():
         sub_p.wait()
     dist_done += min(numDist-dist_done, len(node))
@@ -736,7 +739,8 @@ while dist_done < numDist:
             run_BSREL(  outFile + "." + str(dist_num),
                         this_dist,
                         rep,
-                        node_processes)
+                        node_processes,
+                        node)
     for sub_p in node_processes.values():
         sub_p.wait()
     dist_done += min(numDist-dist_done, len(node))

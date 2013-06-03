@@ -9,7 +9,7 @@ import os
 import subprocess
 import time
 
-node = range(13,31)
+node_list = range(13,31)
 local_processes = {}
 
 def generate_settings(num_taxa, out_name, numReps, lenSeqs, rate_classes_per_branch = -1):
@@ -122,7 +122,10 @@ def generate_taxa(tax_name, num_rate_classes):
     entry["props"] = props
     return entry
 
-def simulate(set_file_name, nodeI, node_processes = local_processes):
+def simulate(   set_file_name,
+                nodeI,
+                node_processes = local_processes,
+                nodes = node_list):
     batchfile = open(set_file_name + ".bf", 'w')
     batchfile.write('inputRedirect = {};\n\n')
     batchfile.write('inputRedirect["00"]="'
@@ -140,7 +143,7 @@ def simulate(set_file_name, nodeI, node_processes = local_processes):
                     'GenericSimulator.bf", inputRedirect);')
     batchfile.close()
     call_list = [   'bpsh',
-                    str(node[nodeI]),
+                    str(nodes[nodeI]),
                     'HYPHYMP',
                     os.path.dirname(os.path.abspath(__file__))
                         + os.sep

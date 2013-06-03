@@ -2,10 +2,14 @@
 # XXX make fully independent
 
 import os, subprocess, time
-node = range(13,31)
+node_list = range(13,31)
 local_processes = {}
 
-def run_BSREL(set_file_name, nodeI, rep, node_processes = local_processes):
+def run_BSREL(  set_file_name,
+                nodeI,
+                rep,
+                node_processes = local_processes,
+                nodes = node_list):
     batchfile = open(set_file_name + ".sim." + str(rep) + ".recover.bf", 'w')
     batchfile.write('inputRedirect = {};\n\n')
     batchfile.write('inputRedirect["00"]= "Universal";\n')
@@ -32,7 +36,7 @@ def run_BSREL(set_file_name, nodeI, rep, node_processes = local_processes):
                     ', inputRedirect);')
     batchfile.close()
     call_list = [   'bpsh',
-                    str(node[nodeI]),
+                    str(nodes[nodeI]),
                     'HYPHYMP',
                     os.path.dirname(os.path.abspath(__file__))
                         + os.sep
