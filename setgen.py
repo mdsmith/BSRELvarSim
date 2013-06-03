@@ -4,7 +4,7 @@
 
 from treegen import get_tree, get_unrooted_tree
 from simsetgen import generate_all_settings
-from simrun import simulate
+from simrun import run_simulation
 from bsrelrun import run_BSREL
 import sys
 import math
@@ -695,20 +695,12 @@ end = time.time()
 sim_time += end - start
 
 # Run simulator
-# XXX pull out to library
-# XXX if prev steps aren't done infer necessary inputs
+# XXX if prev steps aren't done infer necessary inputs (wait till parser lib
+# is in place)
 start = time.time()
-dist_done = 0
-while dist_done < numDist:
-    for this_dist in range(min(numDist-dist_done, len(node))):
-        dist_num = this_dist + dist_done
-        simulate(   outFile + "." + str(dist_num),
-                    this_dist,
-                    node_processes,
-                    node)
-    for sub_p in node_processes.values():
-        sub_p.wait()
-    dist_done += min(numDist-dist_done, len(node))
+
+run_simulation(num_taxa, numDist, "", outFile, node_processes, node)
+
 end = time.time()
 sim_time += end - start
 

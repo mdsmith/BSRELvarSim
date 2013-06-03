@@ -117,7 +117,6 @@ def generate_taxa(tax_name, num_rate_classes):
     entry["props"] = props
     return entry
 
-# XXX source input from arguments
 def generate_all_settings(  num_taxa,
                             num_dist,
                             num_reps,
