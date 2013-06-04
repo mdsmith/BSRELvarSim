@@ -135,7 +135,7 @@ def generate_all_settings(  num_taxa,
     return inputParameterSets
 
 if __name__ == "__main__":
-    if len(sys.argv) == 6:
+    if len(sys.argv) == 6 or len(sys.argv) == 7:
         num_taxa, num_dist, num_reps, len_seqs, out_file = sys.argv[1:6]
         rate_classes_per_branch = -1
         if len(sys.argv) == 7:
@@ -150,7 +150,7 @@ if __name__ == "__main__":
         print(sys.argv, file=sys.stderr)
         print(  "Valid usage:\n" \
                 "\t- simsetgen <num_taxa> <num_dist> <num_reps> " \
-                "<len_seqs> [<rate_classes_per_branch>]\n" \
+                "<len_seqs> <out_file> [<rate_classes_per_branch>]\n" \
                 "Where:\n" \
                 "\t- <num_taxa>: number of taxa (power of two)\n" \
                 "\t- <num_dist>: number of distributions\n" \

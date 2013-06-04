@@ -1,7 +1,6 @@
 #! /usr/bin/env python
-# XXX make fully independent
 
-import os
+import os, sys
 import subprocess
 import time
 
@@ -46,8 +45,7 @@ def simulate(   set_file_name,
 
 # XXX change this to actually use the in_file argument (so you can use input
 # files with different, arbitrary, names)
-def run_simulation( num_taxa,
-                    num_dist,
+def run_simulation( num_dist,
                     in_file,
                     out_file,
                     node_processes = local_processes,
@@ -66,4 +64,17 @@ def run_simulation( num_taxa,
     return 0
 
 if __name__ == "__main__":
-    runSimulation()
+    if len(sys.argv) == 4:
+        num_dist, in_file, out_file = sys.argv[1:4]
+        run_simulation( int(num_dist),
+                        in_file,
+                        out_file)
+    else:
+        #print(sys.argv, file=sys.stderr)
+        print(  "Valid usage:\n" \
+                "\t- simrun <num_dist> <in_file> <out_file>\n" \
+                "Where:\n" \
+                "\t- <num_dist>: number of distributions\n" \
+                "\t- <in_file>: input filename (may include path)\n" \
+                "\t- <out_file>: output filename (may include path)\n",
+                file=sys.stderr)

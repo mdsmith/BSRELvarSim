@@ -5,7 +5,7 @@
 from treegen import get_tree, get_unrooted_tree
 from simsetgen import generate_all_settings
 from simrun import run_simulation
-from bsrelrun import run_BSREL
+from bsrelrun import run_all_BSREL
 import sys
 import math
 import numpy as NP
@@ -698,31 +698,20 @@ sim_time += end - start
 # XXX if prev steps aren't done infer necessary inputs (wait till parser lib
 # is in place)
 start = time.time()
-
-run_simulation(num_taxa, numDist, "", outFile, node_processes, node)
-
+run_simulation(numDist, "", outFile, node_processes, node)
 end = time.time()
 sim_time += end - start
 
 # Run BSREL
-# XXX pull out to library
 # XXX if prev steps aren't done infer necessary inputs
     # XXX maybe include an option to specify these as input?
     # e.g., have 100 simulations, run BSREL on 3...
-dist_done = 0
 start = time.time()
-while dist_done < numDist:
-    for this_dist in range(min(numDist-dist_done, len(node))):
-        dist_num = this_dist + dist_done
-        for rep in range(int(numReps)):
-            run_BSREL(  outFile + "." + str(dist_num),
-                        this_dist,
-                        rep,
-                        node_processes,
-                        node)
-    for sub_p in node_processes.values():
-        sub_p.wait()
-    dist_done += min(numDist-dist_done, len(node))
+run_all_BSREL(  numDist,
+                outFile,
+                numReps
+                node_processes,
+                node)
 end = time.time()
 bsrel_time += end - start
 
