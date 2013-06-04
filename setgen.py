@@ -6,6 +6,7 @@ from treegen import get_tree, get_unrooted_tree
 from simsetgen import generate_all_settings
 from simrun import run_simulation
 from bsrelrun import run_all_BSREL
+from bsrelSimParsers import recover_csv, recover_fit, recover_simulated
 import sys
 import math
 import numpy as NP
@@ -21,142 +22,11 @@ node = range(13,31)
 node_processes = {}
 
 num_taxa = 4
-#rate_class_limit = True
-#rate_class_limit = False
 # -1 indicates no limit, draw at random
 rate_classes_per_branch = -1
 
-# return a dict of the different taxa (which are themselves dicts
-def recover_fit(num_taxa, rec_file_name, dist, rep):
-    results = {}
-    fullfilename = rec_file_name + ".sim." + str(rep) + ".recovered.fit"
-    print(fullfilename)
-    resultsfile = open(fullfilename, 'r')
-    lines = resultsfile.readlines()
-    lines = [line for line in lines if line[:11] == "mixtureTree"]
-    for taxaI in range(1, (2*num_taxa) - 2):
-        results[str(taxaI)] = {}
-    for line in lines:
-        tokens = line.split('=')
-        # check for and dispense with constraints
-        if len(tokens) == 2:
-            tokens[0] = tokens[0][12:]
-            name, parameter = tokens[0].split('.')
-            value = tokens[1].split(';')[0]
-        results[name.upper()][parameter] = value
-    for taxa in results.keys():
-        try:
-            results[taxa] = format_results(taxa, results[taxa])
-        except KeyError:
-            print("dist: ", dist)
-            print("taxa: ", taxa)
-            print(results[taxa])
-            exit(1)
-    return results
-
-def recover_csv(num_taxa, rec_file_name, dist, rep):
-    results = {}
-    results_file = open(rec_file_name + ".sim." + str(rep) + ".recovered", 'r')
-    lines = results_file.readlines()
-    lines = lines[1:]
-    for line in lines:
-        line = line.split(',')
-        results[line[0]] = {}
-        results[line[0]]["name"] = line[0]
-        results[line[0]]["length"] = line[-1]
-        results[line[0]]["omegas"] = []
-        results[line[0]]["props"] = []
-        over_one = 0
-        results[line[0]]["pval"] = line[7]
-        if (line[3]) != "0":
-            if line[3] == "inf":
-                results[line[0]]["omegas"].append(10000)
-            else:
-                results[line[0]]["omegas"].append(line[3])
-            results[line[0]]["props"].append(line[4])
-            over_one = 1
-        for oI in range(1, (int(line[2]) + 1 - int(over_one))):
-            results[line[0]]["omegas"].append(str(line[1]))
-            results[line[0]]["props"].append(str(   (1 - float(line[4]))
-                                                    /float(line[2])))
-    return results
-
-def recover_simulated(num_taxa, rec_file_name, dist, rep):
-    input = {}
-    sim_file = open(rec_file_name + ".sim.txt", 'r')
-    lines = sim_file.readlines()
-    names = [line for line in lines if line[:4] == "Node"]
-    names = [name.split('.')[1].rstrip() for name in names]
-    lengths = [line.strip() for line in lines if line.strip()[:6] == "Length"]
-    lengths = [length.split('=')[1] for length in lengths]
-    for name, length in zip(names, lengths):
-        input[name] = {}
-        input[name]["name"] = name
-        input[name]["length"] = length
-    # ad hoc FSM:
-    cur_name = ""
-    cur_omega_list = []
-    cur_prop_list = []
-    for line in lines:
-        if line[:4] == "Node":
-            if cur_name != "":
-                input[cur_name]["omegas"] = cur_omega_list
-                input[cur_name]["props"] = cur_prop_list
-                cur_omega_list = []
-                cur_prop_list = []
-            cur_name = line.split('.')[1].strip()
-        if line.lstrip()[:5] == "omega":
-            cur_omega_list.append(line.split('=')[1].strip())
-        if line.lstrip()[:6] == "weight":
-            cur_prop_list.append(line.split('=')[1].strip())
-    input[cur_name]["omegas"] = cur_omega_list
-    input[cur_name]["props"] = cur_prop_list
-    return input
-
-def format_results(taxa, taxa_dict):
-    entry = {}
-    entry["name"] = taxa
-    entry["omegas"] = []
-    entry["props"] = []
-    omega = False
-    for key in taxa_dict.keys():
-        if key == 't':
-            omega = True
-    if omega == True:
-        entry["length"] = taxa_dict["t"]
-        for key in taxa_dict.keys():
-            if key[:5] == "omega":
-                entry["omegas"].append(taxa_dict[key])
-            if key[:4] == "Paux":
-                entry["props"].append(taxa_dict[key])
-        entry["props"] = convolve_props(entry["props"])
-    else:
-        entry["length"] = taxa_dict['syn']
-        if taxa_dict['syn'] == '0':
-            entry["omegas"].append('20000')
-        else:
-            entry["omegas"].append(str(float(taxa_dict["nonsyn"])/float(taxa_dict["syn"])))
-        entry["props"] = 1
-    return entry
-
-def convolve_props(prop_list):
-    # go from n-1 pauxs to n props
-    tbr = []
-    remaining_weight = 1
-    for prop in prop_list:
-        this_weight = str(float(prop)*remaining_weight)
-        tbr.append(this_weight)
-        remaining_weight -= float(this_weight)
-    tbr.append(remaining_weight)
-    return tbr
-
-# too specific, can be genericized. DEPRICATED
-#def params_to_meandnds(omegas, props):
-    #return sum([float(omegas[i])*float(props[i]) for i in range(len(omegas))])
-
 def weighted_average(values, weights):
     return sum([float(values[i])*float(weights[i]) for i in range(len(values))])
-
 
 def coord_to_bin(coord, bins):
     tbr = coord
@@ -184,84 +54,6 @@ def gen_log_bins(min, max, num):
     if bin_size == 0:
         return [min]
     return [10**(log_min + (i * bin_size)) for i in range(num)]
-
-# XXX incomplete
-def gen_semi_log_bins(min, max, num):
-    tbr = []
-    first_bin = -8
-    while (10**first_bin) < min:
-        first_bin += 1
-    first_bin -= 1
-    #tbr.append(10**first_bin)
-    print("start: ", 10**first_bin)
-    last_bin = first_bin
-    while (10**last_bin) < max:
-        last_bin += 1
-    #tbr = [10**i for i in range(first_bin, last_bin)]
-    for i in range(first_bin, last_bin):
-        if len(tbr) <= num:
-            tbr.append(10**i)
-    if len(tbr) < num:
-        tbr.append(max)
-    # XXX now go through and generate the numbers in between
-    while len(tbr) < num:
-        cur_index = 1
-        while cur_index < len(tbr):
-            if len(tbr) < num:
-                tbr.insert(cur_index, ) # XXX what to insert?
-                cur_index += 1
-            cur_index += 1
-    #if len(tbr) < num:
-        #tbr.append(10**last_bin)
-    print("end: ", 10**(last_bin-1))
-    #while len(tbr) < num:
-        #current_index = 1
-        #while current_index < len(tbr) and len(tbr) < num:
-            #tbr.insert(current_index, tbr[current_index]/2)
-            #current_index += 2
-    return tbr
-
-# this wasn't really taking the mean... depricated
-#def tuple_to_heatarray( data,
-#                        x_num_bins,
-#                        y_num_bins,
-#                        xmax=0,
-#                        xmin=1,
-#                        ymax=0,
-#                        ymin=1,
-#                        xtype="linear",
-#                        ytype="linear"):
-#    xmin = min([x for x,y,p in data])
-#    xmax = max([x for x,y,p in data])
-#    ymin = min([y for x,y,p in data])
-#    ymax = max([y for x,y,p in data])
-#    if xtype == "linear":
-#        xbins = gen_lin_bins(xmin, xmax, x_num_bins)
-#    else:
-#        xbins = gen_log_bins(xmin, xmax, x_num_bins)
-#    if ytype == "linear":
-#        ybins = gen_lin_bins(ymin, ymax, y_num_bins)
-#    else:
-#        ybins = gen_log_bins(ymin, ymax, y_num_bins)
-#    print("xbins: \n", xbins)
-#    heatarray = NP.ones((len(xbins), len(ybins)))
-#    heatarray[:] = 99
-#    heatcount = NP.zeros((len(xbins), len(ybins)))
-#    #print(ybins)
-#    for x,y,p in data:
-#        x_bin = coord_to_bin(x, xbins)
-#        y_bin = coord_to_bin(y, ybins)
-#        current_val = heatcount[x_bin][y_bin] * heatarray[x_bin][y_bin]
-#        heatcount[x_bin][y_bin] += 1
-#        new_val = (current_val + p)/heatcount[x_bin][y_bin]
-#        heatarray[x_bin][y_bin] = new_val
-#        #heatarray[coord_to_bin(x, xbins)][coord_to_bin(y, ybins)] = p
-#
-#    for xI in range(len(heatarray[:,1])):
-#        for yI in range(len(heatarray[1,:])):
-#            if heatarray[xI][yI] == 99:
-#                heatarray[xI][yI] = NP.NAN
-#    return heatarray, xbins, ybins
 
 # false positive to the ratio of false positives/input negative aka false
 # positive/false positive + true negative
@@ -709,7 +501,7 @@ sim_time += end - start
 start = time.time()
 run_all_BSREL(  numDist,
                 outFile,
-                numReps
+                numReps,
                 node_processes,
                 node)
 end = time.time()
@@ -717,6 +509,12 @@ bsrel_time += end - start
 
 # XXX Process results
 # XXX pull out to library
+
+# XXX 1. make input parser
+# XXX 2. remove return dependency from previous step
+# XXX 3. separate processing and graphing
+# XXX 4. allow specification of steps to run as argument
+
 # XXX if prev steps aren't done infer necessary inputs
 # XXX make a bunch of parsers in a parsing library
 start = time.time()
