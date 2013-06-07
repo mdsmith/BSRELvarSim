@@ -6,7 +6,8 @@ from treegen import get_tree, get_unrooted_tree
 from simsetgen import generate_all_settings
 from simrun import run_simulation
 from bsrelrun import run_all_BSREL
-from bsrelSimParsers import recover_csv, recover_fit, recover_simulated
+from bsrelSimParsers import (   recover_csv, recover_fit, recover_simulated,
+                                recover_settings)
 import sys
 import math
 import numpy as NP
@@ -476,28 +477,29 @@ python_time = 0
 
 # Write settings
 start = time.time()
-# XXX remove the return once the parser library is separated
-inputParameterSets = generate_all_settings( num_taxa,
-                                            numDist,
-                                            numReps,
-                                            lenSeqs,
-                                            outFile,
-                                            rate_classes_per_branch)
+generate_all_settings(  num_taxa,
+                        numDist,
+                        numReps,
+                        lenSeqs,
+                        outFile,
+                        rate_classes_per_branch)
 end = time.time()
 sim_time += end - start
 
+# Now get them back!
+parsedInputs = {}
+for dist in range(numDist):
+    parsedInputs[str(dist)] = recover_settings(outFile + "." + str(dist))
+
 # Run simulator
-# XXX if prev steps aren't done infer necessary inputs (wait till parser lib
-# is in place)
 start = time.time()
 run_simulation(numDist, "", outFile, node_processes, node)
 end = time.time()
 sim_time += end - start
 
 # Run BSREL
-# XXX if prev steps aren't done infer necessary inputs
-    # XXX maybe include an option to specify these as input?
-    # e.g., have 100 simulations, run BSREL on 3...
+# XXX maybe include an option to specify these as input?
+# e.g., have 100 simulations, run BSREL on 3...
 start = time.time()
 run_all_BSREL(  numDist,
                 outFile,
@@ -510,10 +512,9 @@ bsrel_time += end - start
 # XXX Process results
 # XXX pull out to library
 
-# XXX 1. make input parser
-# XXX 2. remove return dependency from previous step
 # XXX 3. separate processing and graphing
-# XXX 4. allow specification of steps to run as argument
+# XXX 4. Break graphing out to library
+# XXX 5. allow specification of steps to run as argument
 
 # XXX if prev steps aren't done infer necessary inputs
 # XXX make a bunch of parsers in a parsing library
@@ -550,19 +551,12 @@ end = time.time()
 python_time += end - start
 
 # recover the simulated length params
-print("csv results: \n", results)
-print("input with lengths: \n", inputs_with_lengths)
+#print("csv results: \n", results)
+#print("input with lengths: \n", inputs_with_lengths)
 # recover the fit file: results_with_lengths
-print("results with lengths: \n", results_with_lengths)
-# XXX process the lengths
-#length_errors = length_error(inputs_with_lengths, results_with_lengths)
+#print("results with lengths: \n", results_with_lengths)
 
-print("inputs with lengths:")
-print(inputs_with_lengths)
-print("inputParameterSets")
-print(inputParameterSets)
-
-length_errors = length_error(inputParameterSets, results)
+length_errors = length_error(parsedInputs, results)
 print("length results:\n", length_errors)
 length_heatarray, len_xbins, len_ybins = tuple_to_averaged_heatarray(length_errors, 12, 12)
 print("\nLength heat array:\n", length_heatarray)
@@ -575,7 +569,7 @@ heatarray_to_heatmap(   length_heatarray,
                         "Length",
                         "lengthError.png")
 start = time.time()
-process_csv_results(inputParameterSets, results)
+process_csv_results(parsedInputs, results)
 end = time.time()
 python_time += end - start
 

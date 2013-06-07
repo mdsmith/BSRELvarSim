@@ -1,8 +1,107 @@
+# XXX remove extraneous parameters!
 
-# XXX make this a reality (recover simulated doesn't recover the input
-# lengths)
-def recover_settings():
-    return 0
+def tokenize(line):
+    line = [token.strip("\" :{},")
+            for token in line.split()
+            if token.strip("\" :{},") != ""]
+    return line
+
+# recover one dists worth of settings
+def recover_settings(file_name):
+    tree = {}
+    sim_file = open(file_name, 'r')
+    lines = sim_file.readlines()
+
+    # narrow to settings:
+    sentry_val = "bsrel_settings"
+    settings = False
+    new_lines = []
+    for line in lines:
+        if line[:2] == "};":
+            settings = False
+        if settings == True:
+            new_lines.append(line)
+        elif line[:len(sentry_val)]  == sentry_val:
+            settings = True
+    lines = new_lines
+
+    in_branch = False
+    in_omega = False
+    current_branch = {}
+    current_omegas = []
+    current_props = []
+    current_branch_number = 0
+    # pull out the settings:
+    #print("lines:")
+    #print(lines)
+    for line in lines:
+        if in_branch == True and line[:2] == "},":
+            tree[current_branch_number] = current_branch
+            #print("current_branch")
+            #print(current_branch)
+            in_branch = False
+        elif in_branch == False and line[0] == "\"":
+            #print("starting a branch...")
+            current_branch = {}
+            current_omeags = []
+            current_props = []
+            in_branch = True
+
+            line = tokenize(line)
+            number = line[0]
+            current_branch_number = number
+            current_branch["name"] = number
+            line = line[1:]
+            if line[0] == "length":
+                in_omega = False
+                #print("length:")
+                #print(line)
+                variable, value = line
+                current_branch[variable] = float(value)
+            elif line[0] == "omegas":
+                #print("omegas:")
+                #print(line)
+                # the variable name is omega, but we know there is a prop as
+                # well
+                in_omega = True
+                _, omega_v, prop_v = line
+                current_omegas.append(float(omega_v))
+                current_props.append(float(prop_v))
+        elif in_branch == True and line[0] == "}":
+            #print("saving omegas and props...")
+            current_branch["omegas"] = current_omegas
+            current_branch["props"] = current_props
+            current_omegas = []
+            current_props = []
+            in_omega = False
+        elif in_branch == True:
+            #print("expanding branch details...")
+            #print(line)
+            line = tokenize(line)
+            #print(line)
+            if in_omega == True:
+                #print("extending omega")
+                omega_v, prop_v = line
+                current_omegas.append(float(omega_v))
+                current_props.append(float(prop_v))
+            if in_omega == False:
+                #print("starting new parameter type")
+                if line[0] == "length":
+                    #print("length:")
+                    #print(line)
+                    variable, value = line
+                    current_branch[variable] = float(value)
+                elif line[0] == "omegas":
+                    #print("omegas:")
+                    #print(line)
+                    # the variable name is omega, but we know there is a prop as
+                    # well
+                    in_omega = True
+                    _, omega_v, prop_v = line
+                    #print("appending!")
+                    current_omegas.append(float(omega_v))
+                    current_props.append(float(prop_v))
+    return tree
 
 # return a dict of the different taxa (which are themselves dicts
 def recover_fit(num_taxa, rec_file_name, dist, rep):
