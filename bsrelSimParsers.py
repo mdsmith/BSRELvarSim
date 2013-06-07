@@ -104,7 +104,7 @@ def recover_settings(file_name):
     return tree
 
 # return a dict of the different taxa (which are themselves dicts
-def recover_fit(num_taxa, rec_file_name, dist, rep):
+def recover_fit(num_taxa, rec_file_name, rep):
     results = {}
     fullfilename = rec_file_name + ".sim." + str(rep) + ".recovered.fit"
     print(fullfilename)
@@ -122,16 +122,16 @@ def recover_fit(num_taxa, rec_file_name, dist, rep):
             value = tokens[1].split(';')[0]
         results[name.upper()][parameter] = value
     for taxa in results.keys():
-        try:
-            results[taxa] = format_results(taxa, results[taxa])
-        except KeyError:
-            print("dist: ", dist)
-            print("taxa: ", taxa)
-            print(results[taxa])
-            exit(1)
+        #try:
+        results[taxa] = format_results(taxa, results[taxa])
+        #except KeyError:
+            #print("dist: ", dist)
+            #print("taxa: ", taxa)
+            #print(results[taxa])
+            #exit(1)
     return results
 
-def recover_csv(num_taxa, rec_file_name, dist, rep):
+def recover_csv(num_taxa, rec_file_name, rep):
     results = {}
     results_file = open(rec_file_name + ".sim." + str(rep) + ".recovered", 'r')
     lines = results_file.readlines()
@@ -158,7 +158,7 @@ def recover_csv(num_taxa, rec_file_name, dist, rep):
                                                     /float(line[2])))
     return results
 
-def recover_simulated(num_taxa, rec_file_name, dist, rep):
+def recover_simulated(num_taxa, rec_file_name, rep):
     input = {}
     sim_file = open(rec_file_name + ".sim.txt", 'r')
     lines = sim_file.readlines()
