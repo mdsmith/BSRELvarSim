@@ -555,8 +555,7 @@ if start_step <= 4 and end_step >=4:
                                                             + "."
                                                             + str(dist_num),
                                                         rep))
-            this_sets_results.append(recover_csv(   num_taxa,
-                                                    outFile + "."
+            this_sets_results.append(recover_csv(   outFile + "."
                                                             + str(dist_num),
                                                     rep))
         results[str(dist_num)] = this_sets_results

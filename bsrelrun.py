@@ -31,7 +31,8 @@ def run_BSREL(  set_file_name,
                     + str(rep)
                     + '.recovered";\n')
     batchfile.write('ExecuteAFile' \
-                    '("/usr/local/lib/hyphy/TemplateBatchFiles/BranchSiteREL.bf"'
+                    #'("/usr/local/lib/hyphy/TemplateBatchFiles/BranchSiteREL.bf"'
+                    '("/home/martin/Software/multimodelBSREL/multiBSREL.bf"'
                     ', inputRedirect);')
     batchfile.close()
     call_list = [   'bpsh',

@@ -131,9 +131,26 @@ def recover_fit(num_taxa, rec_file_name, rep):
             #exit(1)
     return results
 
-def recover_csv(num_taxa, rec_file_name, rep):
+def recover_csv_mg94(file_name):
     results = {}
-    results_file = open(rec_file_name + ".sim." + str(rep) + ".recovered", 'r')
+    results_file = open(file_name, 'r')
+    lines = results_file.readlines()
+    header = lines[0]
+    lines = lines[1:]
+    for line in lines:
+        line = line.split(',')
+        results[line[0]] = {}
+        results[line[0]]["name"] = line[0]
+        results[line[0]]["length"] = line[-1]
+        results[line[0]]["omegas"] = [[line[1]]]
+        results[line[0]]["props"] = [[1.0]]
+    return results
+
+def recover_csv(file_name, rep=-1):
+    if rep != -1:
+        file_name = file_name + ".sim." + str(rep) + ".recovered"
+    results = {}
+    results_file = open(file_name, 'r')
     lines = results_file.readlines()
     lines = lines[1:]
     for line in lines:
@@ -144,18 +161,33 @@ def recover_csv(num_taxa, rec_file_name, rep):
         results[line[0]]["omegas"] = []
         results[line[0]]["props"] = []
         over_one = 0
+        over_one_val = 0
         results[line[0]]["pval"] = line[7]
         if (line[3]) != "0":
             if line[3] == "inf":
                 results[line[0]]["omegas"].append(10000)
+                over_one_val = 10000
             else:
                 results[line[0]]["omegas"].append(line[3])
+                over_one_val = float(line[3])
             results[line[0]]["props"].append(line[4])
             over_one = 1
         for oI in range(1, (int(line[2]) + 1 - int(over_one))):
-            results[line[0]]["omegas"].append(str(line[1]))
-            results[line[0]]["props"].append(str(   (1 - float(line[4]))
-                                                    /float(line[2])))
+            if float(line[4]) == 1:
+                omegas = 0
+            else:
+                omegas =    (float(line[1]) - (float(over_one_val) *
+                            float(line[4]))) / (1 - float(line[4]))
+            if omegas < 0:
+                omegas = 0
+            #results[line[0]]["omegas"].append(str(omegas))
+            results[line[0]]["omegas"].append(omegas)
+            #results[line[0]]["props"].append(str(   (1 - float(line[4]))
+                                                    #/(float(line[2]) -
+                                                    #over_one)))
+            results[line[0]]["props"].append((  1 - float(line[4]))
+                                                /(float(line[2]) -
+                                                over_one))
     return results
 
 def recover_simulated(num_taxa, rec_file_name, rep):

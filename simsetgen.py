@@ -13,9 +13,10 @@ def generate_settings(num_taxa, out_name, numReps, lenSeqs, rate_classes_per_bra
         rate_class_assignments = [  rate_classes_per_branch
                                     for _ in range((2*num_taxa) - 2)]
     else:
-        rate_class_assignments = [  math.ceil(NP.random.exponential(.75))
-                                    for _ in range((2*num_taxa) - 2)]
-    #print(rate_class_assignments)
+        rate_class_assignments = NP.random.poisson( .25, (2*num_taxa) - 2)
+        rate_class_assignments = [a + 1 for a in rate_class_assignments]
+        #rate_class_assignments = [  math.ceil(NP.random.exponential(.75))
+                                    #for _ in range((2*num_taxa) - 2)]
     #rate_class_assignments = [ 1 for _ in range((2*num_taxa) - 2)]
     out = open(out_name, 'w')
     buffer = []
