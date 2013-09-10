@@ -24,8 +24,9 @@ def simulate(   set_file_name,
                     + set_file_name
                     + '.sim";\n')
     batchfile.write('ExecuteAFile' \
-                    '("/data/veg/HSV/Simulation/01Initial/' \
-                    'GenericSimulator.bf", inputRedirect);')
+                    #'("/data/veg/HSV/Simulation/01Initial/' \
+                    #'GenericSimulator.bf", inputRedirect);')
+                    '("BSRELsimFromSettings.bf", inputRedirect);')
     batchfile.close()
     call_list = [   'bpsh',
                     str(nodes[nodeI]),
