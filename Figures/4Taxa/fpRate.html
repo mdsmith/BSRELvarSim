@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>D3 Figurator</title>
+        <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+        <style>
+            /*
+            body {
+                font: 10px sans-serif;
+            }
+            */
+        </style>
+    </head>
+    <body>
+        <script type="text/javascript">
+
+            function filterByRateClass(data, rateClass) {
+                var newDataset = [];
+                for (var i = 0; i < data.length; i++) {
+                    if (data[i]["RateClasses"] == rateClass) {
+                        newDataset.push(data[i]);
+                    }
+                }
+                return newDataset;
+            }
+
+            function filterByOverOne(data) {
+                var newDataset = [];
+                for (var i = 0; i < data.length; i++) {
+                    if ((+(data[i]["OmegaOver1"])) >= 1) {
+                        newDataset.push(data[i]);
+                    }
+                }
+                return newDataset;
+            }
+
+            function filterBySettingsOverOne(data) {
+                var newDataset = [];
+                for (var i = 0; i < data.length; i++) {
+                    if ((+(data[i]["Settings_OmegaOver1"])) >= 1) {
+                        newDataset.push(data[i]);
+                    }
+                }
+                return newDataset;
+            }
+
+            function filterBySettingsUnderOne(data) {
+                var newDataset = [];
+                for (var i = 0; i < data.length; i++) {
+                    if ((+(data[i]["Settings_OmegaOver1"])) <= 1) {
+                        newDataset.push(data[i]);
+                    }
+                }
+                return newDataset;
+            }
+
+            function getTPRatio(entries) {
+                var expPos = entries[4].length;
+                if (expPos != 0) {
+                    var infPos = 0;
+                    for (var i = 0; i < entries[4].length; i++) {
+                        if ((+(entries[4][i].OmegaOver1)) != 0) {
+                            //console.log((+(entries[4][i].OmegaOver1)));
+                            infPos++;
+                        }
+                    }
+                    return infPos/expPos;
+                }
+                else {
+                    return 0;
+                }
+            }
+
+            function getFPRatio(box) {
+                var expPos = box[4].length;
+                if (expPos != 0) {
+                    var infPos = 0;
+                    for (var i = 0; i < box[4].length; i++) {
+                        if ((+(box[4][i].OmegaOver1)) != 0) {
+                            //console.log((+(entries[4][i].OmegaOver1)));
+                            infPos++;
+                        }
+                    }
+                    return infPos/expPos;
+                }
+                else {
+                    return 0;
+                }
+            }
+
+            function xSorter(entry1, entry2) {
+                if ((+(entry1.Settings_MaxOmega)) <
+                        (+(entry2.Settings_MaxOmega)))
+                    return -1;
+                if ((+(entry1.Settings_MaxOmega)) >
+                        (+(entry2.Settings_MaxOmega)))
+                    return 1;
+                return 0;
+            }
+
+            function ySorter(entry1, entry2) {
+                if ((+(entry1.Settings_MaxOmegaProp)) <
+                        (+(entry2.Settings_MaxOmegaProp)))
+                    return -1;
+                if ((+(entry1.Settings_MaxOmegaProp)) >
+                                (+(entry2.Settings_MaxOmegaProp)))
+                    return 1;
+                return 0;
+            }
+
+            function consolidate(boxes) {
+                var newBox = [boxes[0][0],boxes[0][1],boxes[0][2],boxes[0][3],[]];
+                for (var i = 0; i < boxes.length; i++) {
+                    if (boxes[i][0] < newBox[0]) {
+                        newBox[0] = boxes[i][0];
+                    }
+                    if (boxes[i][1] > newBox[1]) {
+                        newBox[1] = boxes[i][1];
+                    }
+                    for (var j = 0; j < boxes[i][4].length; j++) {
+                        newBox[4].push(boxes[i][4][j]);
+                    }
+                }
+                return newBox;
+            }
+
+            function buildBoxes(data) {
+                var rangeMin = d3.min(data,
+                    function (d){
+                        return (+(d.Settings_MaxOmegaProp));
+                        });
+                var rangeMax = d3.max(data,
+                    function (d){
+                        return (+(d.Settings_MaxOmegaProp));
+                        });
+                var domainMin = d3.min(data,
+                    function (d){
+                        return (+(d.Settings_MaxOmega));
+                        });
+                var domainMax = d3.max(data,
+                    function (d){
+                        return (+(d.Settings_MaxOmega));
+                        });
+                var range = rangeMax - rangeMin;
+                var domain = domainMax - domainMin;
+
+                var boxes = [];
+                //console.log(data.length);
+                //var dotsPerColumn = 1000;
+                var dotsPerColumn = 2000;
+                var xBoxes = [];
+
+                // Divy into columns by x
+                data = data.sort(xSorter);
+                binCounter = 0;
+                tempBin = [];
+                for (var i = 0; i < data.length; i++) {
+                    if (binCounter == dotsPerColumn) {
+                        binCounter = 0;
+                        xBoxes.push(tempBin);
+                        tempBin = [];
+                    }
+                    else {
+                        tempBin.push(data[i]);
+                        binCounter++;
+                    }
+                }
+                if (binCounter != 0) {
+                    xBoxes.push(tempBin);
+                    binCounter = 0;
+                    tempBin = [];
+                }
+
+                // Divy into bins by y
+                var lastXmax = 0;
+                //var dotsPerBox = 100;
+                var dotsPerBox = 25;
+                for (var i = 0; i < xBoxes.length; i++) {
+                    var xMax = lastXmax;
+                    var yBoxes = [];
+                    var tempColumn = xBoxes[i].sort(ySorter);
+                    var tempBox = [0,-1,lastXmax, xMax, []];
+                    for (var j =0; j < tempColumn.length; j++) {
+                        if ((+(tempColumn[j].Settings_MaxOmega)) > xMax) {
+                            xMax = (+(tempColumn[j].Settings_MaxOmega));
+                        }
+                        if (tempBox[4].length == dotsPerBox) {
+                            yBoxes.push(tempBox);
+                            //boxes.push(tempBox);
+                            tempBox = [ tempBox[1],
+                                        -1,
+                                        lastXmax,
+                                        xMax,
+                                        []];
+                        }
+                        tempBox[4].push(tempColumn[j]);
+                        tempBox[1] =
+                            (+(tempColumn[j].Settings_MaxOmegaProp));
+                    }
+                    if (tempBox[4].length != 0) {
+                        yBoxes.push(tempBox);
+                        //boxes.push(tempBox);
+                    }
+                    for (var j = 0; j < yBoxes.length; j++) {
+                        yBoxes[j][3] = xMax;
+                    }
+
+                    var topBoxes = [];
+                    topBoxes.push(yBoxes.pop());
+                    while (topBoxes[topBoxes.length - 1][0] ==
+                            topBoxes[topBoxes.length - 1][1]) {
+                        topBoxes.push(yBoxes.pop());
+                    }
+                    yBoxes.push(topBoxes.pop());
+                    if (topBoxes.length >= 1) {
+                        var topBox = consolidate(topBoxes);
+                        yBoxes.push(topBox);
+                    }
+
+                    for (var j = 0; j < yBoxes.length; j++) {
+                        boxes.push(yBoxes[j]);
+                    }
+
+                    lastXmax = xMax;
+                }
+                return boxes;
+            }
+
+
+            d3.csv("10k.csv", function(data) {
+                dataset = data;
+
+                dataset = filterBySettingsUnderOne(dataset);
+                console.log("number of branches negative:");
+                console.log(dataset.length);
+                var boxes = buildBoxes(dataset);
+                console.log(boxes);
+
+                var formatCount = d3.format(",.0f");
+
+                var margin = {top: 20, right: 100, bottom: 50, left: 40},
+                    w = 680 - margin.left - margin.right,
+                    h = 400 - margin.top - margin.bottom;
+
+
+                var svg = d3.select("body")
+                    .append("svg")
+                    .attr("width", w + margin.left
+                                    + margin.right)
+                    .attr("height", h + margin.top
+                                    + margin.bottom)
+                    .append("g")
+                    .attr(  "transform",
+                            "translate("
+                            + margin.left
+                            + ","
+                            + margin.top
+                            + ")");
+
+                var rangeMin = d3.min(dataset,
+                    function (d){
+                        return (+(d.Settings_MaxOmegaProp));
+                        });
+                var rangeMax = d3.max(dataset,
+                    function (d){
+                        return (+(d.Settings_MaxOmegaProp));
+                        });
+                var domainMin = d3.min(dataset,
+                    function (d){
+                        return (+(d.Settings_MaxOmega));
+                        });
+                var domainMax = d3.max(dataset,
+                    function (d){
+                        return (+(d.Settings_MaxOmega));
+                        });
+                var boxNum = Math.floor(Math.sqrt(data.length));
+                var totalRange = rangeMax - rangeMin;
+                var totalDomain = domainMax - domainMin;
+                var rangeBoxSize = totalRange/boxNum;
+                var domainBoxSize = totalDomain/boxNum;
+
+                domainMax = d3.min([10000, domainMax]);
+
+                var xScale = d3.scale.linear()
+                    .domain([domainMin, domainMax])
+                    //.domain([1, domainMax])
+                    .range([0, w])
+                    .clamp(true);
+
+                var yScale = d3.scale.linear()
+                    .domain([rangeMin, rangeMax])
+                    .range([h, 0])
+                    .clamp(true);
+
+                var yAxis = d3.svg.axis()
+                    .scale(yScale)
+                    .orient("left");
+
+
+                var colors =
+                    ["#00008B","#0000CD","#0000FF","#00FFFF","#7CFC00","#FFFF00","#FFA500","#FF4500","#FF0000","#8B0000"];
+
+                var extentZ = d3.extent(boxes,
+                        function (d) {
+                        return getFPRatio(d);
+                        });
+
+                //console.log(extentZ);
+                var colorScale = d3.scale.linear()
+                    .domain([0, colors.length-1])
+                    .range(extentZ);
+
+                var colorScaler = d3.scale.linear()
+                    .domain(d3.range(0,colors.length).map(colorScale))
+                    .range(colors);
+
+                //console.log(colorScaler(.5));
+
+                /*
+                svg.append("rect")
+                    .attr("x", 1)
+                    .attr("y",  (-1 + (margin.top)))
+                    .attr("height", h)
+                    .attr("width", w)
+                    .attr("fill", "#000")
+                    .attr("stroke", "none");
+                    */
+
+                var colorbar = svg.selectAll("colorbarbox")
+                    .data(colors)
+                    .enter()
+                    .append("g")
+                    .attr("shape-rendering", "crispEdges");
+
+                colorbar.append("rect")
+                    .attr("x", 0)
+                    .attr("y", 0)
+                    .attr("width", 10)
+                    .attr("height", 30)
+                    .attr(  "fill",
+                            function (d, i) {
+                                return colors[i];
+                            })
+                    .attr("stroke", "none")
+                    .attr("transform",
+                            function(d,i) {
+                                return "translate("
+                                        + (w+10)
+                                        + ","
+                                        + ((colors.length * 30) - (i * 30) + (h/2 - (colors.length * 15)) - 15)
+                                        + ")";
+                            });
+
+                colorbar.append("text")
+                    .attr("text-anchor", "left")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "sans-serif")
+                    .attr("x", 0)
+                    .attr("y", 0)
+                    .attr("transform",
+                            function(d,i) {
+                                return "translate("
+                                        + (w+22)
+                                        + ","
+                                        + ((colors.length * 30) - (i * 30) +
+                                            (h/2 - (colors.length * 15) + 15))
+                                        + ")";
+                            })
+                    .text(  function(d,i) {
+                            return d3.round((i/colors.length)
+                                    * (extentZ[1] - extentZ[0]), 2);
+                            });
+
+
+                var groupings = svg.selectAll("group")
+                    .data(boxes)
+                    .enter()
+                    .append("g")
+                    .attr("shape-rendering", "crispEdges");
+
+                groupings.append("rect")
+                    .attr("x", 0)
+                    .attr("y", 0)
+                    .attr("width",
+                            function (d) {
+                                return (xScale(d[3]) - xScale(d[2]));
+                            })
+                    .attr("height",
+                            function (d) {
+                                var height = yScale(d[0]) - yScale(d[1]);
+                                return (height);
+                            })
+                    .attr("fill",
+                            function (d) {
+                                if (d[4].length == 0) {
+                                    return "#FFF";
+                                }
+                                else {
+                                    //console.log(getFPRatio(d));
+                                    //console.log(colorScaler(getFPRatio(d)));
+                                    return colorScaler(getFPRatio(d));
+                                }
+                            })
+                    .attr("stroke", "black")
+                    .attr("stroke-width", "1px")
+                    .attr("shape-rendering", "crispEdges")
+                    .attr("transform",
+                            function(d) {
+                            return "translate("
+                                + (xScale(d[2]))
+                                + ","
+                                + (yScale(d[1]) + margin.top)
+                                + ")";}
+                            );
+
+                var ones = [];
+                for (var i = 0; i < boxes.length; i++) {
+                    if (boxes[i][0] == 1 && boxes[i][1] == 1) {
+                        ones.push(boxes[i]);
+                    }
+                }
+
+                var topGroups= svg.selectAll("topGroup")
+                    .data(ones)
+                    .enter()
+                    .append("g")
+                    .attr("shape-rendering", "crispEdges");
+
+                groupings.append("rect")
+                    .attr("x", 0)
+                    .attr("y", 0)
+                    .attr("width",
+                            function (d) {
+                                return (xScale(d[3]) - xScale(d[2]));
+                            })
+                    .attr("height", 7)
+                    .attr("fill",
+                            function (d) {
+                                if (d[4].length == 0) {
+                                    return "#FFF";
+                                }
+                                else {
+                                    //console.log(getFPRatio(d));
+                                    //console.log(colorScaler(getFPRatio(d)));
+                                    return colorScaler(getFPRatio(d));
+                                }
+                            })
+                    .attr("stroke", "black")
+                    .attr("stroke-width", "1px")
+                    .attr("shape-rendering", "crispEdges")
+                    .attr("transform",
+                            function(d) {
+                            return "translate("
+                                + (xScale(d[2]))
+                                + ","
+                                + (margin.top - 7)
+                                //+ (yScale(d[1]) + margin.top)
+                                + ")";}
+                            );
+                    /*
+                        */
+
+/*
+                var scatter = svg.selectAll("point")
+                    .data(dataset)
+                    .enter()
+                    .append("g")
+                    .attr("shape-rendering", "crispEdges");
+
+                scatter.append("circle")
+                    .attr("cx", 1)
+                    .attr("cy", 1)
+                    .attr("r", 1)
+                    .attr("fill", "#fff")
+                    .attr("stroke", "black")
+                    .attr("stroke-width", "1px")
+                    .attr("shape-rendering", "crispEdges")
+                    .attr("transform",
+                            function(d, i) {
+                                return "translate("
+                                + (xScale((+(d.Settings_MaxOmega))))
+                                + ","
+                                + (yScale((+(d.Settings_MaxOmegaProp))) - 1 + margin.top)
+                                + ")";
+                            });
+*/
+
+                svg.append("g")
+                    .attr("class", "y axis")
+                    .attr("transform", "translate(0, " + margin.top + ")")
+                    .call(yAxis)
+                    .selectAll("text")
+                    .attr("dy", "3px");
+
+                var xAxis = d3.svg.axis()
+                    .scale(xScale)
+                    .orient("bottom");
+
+                svg.append("g")
+                    .attr("class", "x axis")
+                    .attr("transform", "translate(0," + (h + margin.top) + ")")
+                    .call(xAxis)
+                    .selectAll("text")
+                    .attr("dy", "7px");
+
+                svg.append("text")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "sans-serif")
+                    .attr("class", "x label")
+                    .attr("transform", "translate("
+                            + (w/2)
+                            + " ,"
+                            + (h + margin.bottom + margin.top - 23)
+                            + ")")
+                    .attr("text-anchor", "middle")
+                    .text("Maximum simulated substitution rate for all classes on a branch");
+
+                svg.append("text")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "sans-serif")
+                    .attr("class", "y label")
+                    .attr("text-anchor", "middle")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 10 - margin.left)
+                    .attr("x", 0 - (h/2))
+                    .text("Proportion of sites simulated in the highest substitution rate class");
+
+
+                svg.append("text")
+                    .attr("class", "figure title")
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", "14")
+                    .attr("font-family", "sans-serif")
+                    .attr("font-weight", "bold")
+                    .attr("transform", "translate("
+                            + (w/2)
+                            + " ,"
+                            //+ margin.top/2
+                            + 0
+                            + ")")
+                    .text("False Positive Rate (25 Branches per Box)");
+
+                svg.selectAll(".axis text")
+                    .attr("font-size", "9px")
+                    .attr("font-family", "sans-serif");
+
+                svg.selectAll(".axis path")
+                    .attr("fill", "none")
+                    .attr("stroke", "#000")
+                    .attr("shape-rendering", "crispEdges")
+
+                svg.selectAll(".axis line")
+                    .attr("fill", "none")
+                    .attr("stroke", "#000")
+                    .attr("shape-rendering", "crispEdges")
+                });
+        </script>
+    </body>
+</html>
