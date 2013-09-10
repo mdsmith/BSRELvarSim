@@ -450,7 +450,7 @@ def process_results(input, results):
     return 0
 
 if len(sys.argv) != 7:
-    print(  "Valid usage:\n\t- setgen [settings/simulate/bsrel/process] \n" \
+    print(  "Valid usage:\n\t- scriptSim [settings/simulate/bsrel/process] \n" \
             "\t[settings/simulate/bsrel/process] [number of distributions] \n" \
             "\t[number of replicates] [length of sequences] [output file " \
             "name]\n" \
