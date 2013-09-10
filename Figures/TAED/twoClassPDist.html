@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>D3 Figurator</title>
+        <script type="text/javascript" src="d3/d3.v3.js"></script>
+        <style>
+            body {
+                font: 10px sans-serif;
+            }
+        </style>
+    </head>
+    <body>
+        <script type="text/javascript">
+
+            function filterByRateClass(data, rateClass)
+            {
+                newDataset = [];
+                for (var i = 0; i < data.length; i++)
+                {
+                    if (data[i]["RateClasses"] == rateClass)
+                    {
+                        newDataset.push(data[i]);
+                    }
+                }
+                return newDataset;
+            }
+
+            d3.csv("combined.csv", function(data) {
+                    dataset = data;
+
+                    dataset = filterByRateClass(dataset, 2);
+
+                    var formatCount = d3.format(",.0f");
+
+                    var margin = {top: 10, right: 30, bottom: 40, left: 55},
+                        w = 960 - margin.left - margin.right,
+                        h = 500 - margin.top - margin.bottom;
+
+                    var domainMax = d3.max(dataset, function(d) {
+                        return (+(d.p_Holm)); });
+
+                    var domainMax = d3.min([10000, domainMax]);
+
+                    var xScale = d3.scale.linear()
+                        .domain([0, domainMax])
+                        .range([0, w]);
+
+                    var data = d3.layout.histogram()
+                        .bins(xScale.ticks(20))
+                        .value(function(d) { return (+(d.p_Holm)); })
+                        (dataset);
+
+                    var yScale = d3.scale.linear()
+                        .domain([0,d3.max(data, function(d) { return d.y; })])
+                        .range([h, 0]);
+
+                    var yAxis = d3.svg.axis()
+                        .scale(yScale)
+                        .orient("left");
+
+                    var svg = d3.select("body")
+                                .append("svg")
+                                .attr("width",  w
+                                                + margin.left
+                                                + margin.right )
+                                .attr("height", h
+                                                + margin.top
+                                                + margin.bottom)
+                                .append("g")
+                                .attr(  "transform",
+                                        "translate("
+                                        + margin.left
+                                        + ","
+                                        + margin.top
+                                        + ")"
+                                        );
+
+                    var bar = svg.selectAll(".bar")
+                        .data(data)
+                        .enter().append("g")
+                        .attr("fill", "steelblue")
+                        .attr("shape-rendering", "crispEdges")
+                        .attr("transform",
+                                function(d)
+                                {
+                                    return  "translate("
+                                    + xScale(d.x)
+                                    + ","
+                                    + yScale(d.y)
+                                    + ")";
+                                });
+
+
+                    bar.append("rect")
+                        .attr("x", 1)
+                        .attr("width", xScale(data[0].dx) - 1)
+                        .attr("height", function(d) { return h - yScale(d.y);
+                                });
+
+                    bar.append("text")
+                        .attr("dy", ".75em")
+                        .attr("y", 6)
+                        .attr("x", xScale(data[0].dx) / 2)
+                        .attr("fill", "#fff")
+                        .attr("text-anchor", "middle")
+                        .text(function(d) { return formatCount(d.y);});
+
+                    svg.append("g")
+                        .attr("class", "y axis")
+                        .call(yAxis);
+
+                    var xAxis = d3.svg.axis()
+                        .scale(xScale)
+                        .orient("bottom");
+
+                    svg.append("g")
+                        .attr("class", "x axis")
+                        .attr("transform", "translate(0," + h + ")")
+                        .call(xAxis);
+
+                    svg.append("text")
+                        .attr("class", "x label")
+                        .attr("transform", "translate("
+                                + (w/2)
+                                + " ,"
+                                + (h + margin.bottom - 5)
+                                + ")")
+                        .attr("text-anchor", "middle")
+                        .text("p Value after Holm correction");
+
+                    svg.append("text")
+                        .attr("class", "y label")
+                        .attr("text-anchor", "middle")
+                        .attr("transform", "rotate(-90)")
+                        .attr("y", 10 - margin.left)
+                        .attr("x", 0 - (h/2))
+                        .text("Number of branches");
+
+                    svg.append("text")
+                        .attr("class", "figure title")
+                        .attr("text-anchor", "middle")
+                        .attr("font-size", "14")
+                        .attr("font-weight", "bold")
+                        .attr("transform", "translate("
+                                + (w/2)
+                                + " ,"
+                                + margin.top/2
+                                + ")")
+                        .text("p-Holm value for branches with two omegas");
+
+                    svg.selectAll(".axis path")
+                        .attr("fill", "none")
+                        .attr("stroke", "#000")
+                        .attr("shape-rendering", "crispEdges")
+
+                    svg.selectAll(".axis line")
+                        .attr("fill", "none")
+                        .attr("stroke", "#000")
+                        .attr("shape-rendering", "crispEdges")
+                    });
+        </script>
+    </body>
+</html>

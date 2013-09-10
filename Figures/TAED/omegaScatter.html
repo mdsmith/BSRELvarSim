@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>D3 Figurator</title>
+        <script type="text/javascript" src="d3/d3.v3.js"></script>
+        <style>
+            body {
+                font: 10px sans-serif;
+            }
+        </style>
+    </head>
+    <body>
+        <script type="text/javascript">
+
+            function filterByRateClass(data, rateClass) {
+                var newDataset = [];
+                for (var i = 0; i < data.length; i++) {
+                    if (data[i]["RateClasses"] == rateClass) {
+                        newDataset.push(data[i]);
+                    }
+                }
+                return newDataset;
+            }
+
+            function filterByOverOne(data) {
+                var newDataset = [];
+                for (var i = 0; i < data.length; i++) {
+                    if ((+(data[i]["OmegaOver1"])) >= 1) {
+                        newDataset.push(data[i]);
+                    }
+                }
+                return newDataset;
+            }
+
+
+            d3.csv("combined.csv", function(data) {
+                dataset = data;
+
+                dataset = filterByOverOne(dataset);
+
+                var formatCount = d3.format(",.0f");
+
+                var margin = {top: 10, right: 30, bottom: 40, left: 55},
+                    w = 960 - margin.left - margin.right,
+                    h = 500 - margin.top - margin.bottom;
+
+
+                var svg = d3.select("body")
+                    .append("svg")
+                    .attr("width", w + margin.left
+                                    + margin.right)
+                    .attr("height", h + margin.top
+                                    + margin.bottom)
+                    .append("g")
+                    .attr(  "transform",
+                            "translate("
+                            + margin.left
+                            + ","
+                            + margin.top
+                            + ")");
+
+                var xDomainMax = d3.max(dataset,
+                    function (d){
+                        return (+(d.OmegaOver1));
+                    });
+
+                xDomainMax = d3.min([10000, xDomainMax]);
+
+                var xScale = d3.scale.log()
+                    .domain([1, xDomainMax])
+                    .range([0, w])
+                    .clamp(true);
+
+                var yScale = d3.scale.linear()
+                    .domain([0, 1])
+                    .range([h, 0]);
+
+                var yAxis = d3.svg.axis()
+                    .scale(yScale)
+                    .orient("left");
+
+                var scatter = svg.selectAll("point")
+                    .data(dataset)
+                    .enter()
+                    .append("g")
+                    .attr("shape-rendering", "crispEdges");
+
+                scatter.append("circle")
+                    .attr("cx", 1)
+                    .attr("cy", 1)
+                    .attr("r", 1)
+                    .attr("fill", "#fff")
+                    .attr("stroke", "black")
+                    .attr("stroke-width", "1px")
+                    .attr("shape-rendering", "crispEdges")
+                    .attr("transform",
+                            function(d, i) {
+                                return "translate("
+                                + (xScale(d.OmegaOver1))
+                                + ","
+                                + (yScale(d.p_Holm) - 1 + margin.top)
+                                + ")";
+                            });
+
+                svg.append("g")
+                    .attr("class", "y axis")
+                    .attr("transform", "translate(0, " + margin.top + ")")
+                    .call(yAxis);
+
+                var xAxis = d3.svg.axis()
+                    .scale(xScale)
+                    .orient("bottom");
+
+                svg.append("g")
+                    .attr("class", "x axis")
+                    .attr("transform", "translate(0," + (h + margin.top) + ")")
+                    .call(xAxis);
+
+                svg.append("text")
+                    .attr("class", "x label")
+                    .attr("transform", "translate("
+                            + (w/2)
+                            + " ,"
+                            + (h + margin.bottom + margin.top - 14)
+                            + ")")
+                    .attr("text-anchor", "middle")
+                    .text("Omega over one value");
+
+                svg.append("text")
+                    .attr("class", "y label")
+                    .attr("text-anchor", "middle")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 10 - margin.left)
+                    .attr("x", 0 - (h/2))
+                    .text("p-Holm value");
+
+                svg.append("text")
+                    .attr("class", "figure title")
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", "14")
+                    .attr("font-weight", "bold")
+                    .attr("transform", "translate("
+                            + (w/2)
+                            + " ,"
+                            + margin.top/2
+                            + ")")
+                    .text("Omega over one value vs p-Holm value");
+
+                svg.selectAll(".axis path")
+                    .attr("fill", "none")
+                    .attr("stroke", "#000")
+                    .attr("shape-rendering", "crispEdges")
+
+                svg.selectAll(".axis line")
+                    .attr("fill", "none")
+                    .attr("stroke", "#000")
+                    .attr("shape-rendering", "crispEdges")
+                });
+        </script>
+    </body>
+</html>

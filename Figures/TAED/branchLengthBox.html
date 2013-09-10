@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>D3 Figurator</title>
+        <script type="text/javascript" src="d3/d3.v3.js"></script>
+        <style>
+            body {
+                font: 10px sans-serif;
+            }
+        </style>
+    </head>
+    <body>
+        <script type="text/javascript">
+
+            function filterByRateClass(data, rateClass)
+            {
+                var newDataset = [];
+                for (var i = 0; i < data.length; i++)
+                {
+                    if (data[i]["RateClasses"] == rateClass)
+                    {
+                        newDataset.push(data[i]);
+                    }
+                }
+                return newDataset;
+            }
+
+            function quartile(data, breakPoint) {
+                var sortedArray = data.map(
+                        function (d) {
+                            return (+(d.BranchLength));
+                        }).sort(d3.ascending);
+                var tbr = d3.quantile(sortedArray, breakPoint);
+                return tbr;
+            }
+
+            function boxPlot(data) {
+                var min = quartile(data, .05);
+                var max = quartile(data, .95);
+                var first = quartile(data, .25);
+                var second = quartile(data, .50);
+                var third = quartile(data, .75);
+                return [min, first, second, third, max];
+            }
+
+
+            d3.csv("combined.csv", function(data) {
+                dataset = data;
+
+                var oneClassDataset = filterByRateClass(dataset, 1);
+                var twoClassDataset = filterByRateClass(dataset, 2);
+                var threeClassDataset = filterByRateClass(dataset, 3);
+
+                var charts = [  boxPlot(oneClassDataset),
+                                boxPlot(twoClassDataset),
+                                boxPlot(threeClassDataset)];
+                console.log(charts);
+
+                var formatCount = d3.format(",.0f");
+
+                var margin = {top: 10, right: 30, bottom: 40, left: 55},
+                    w = 660 - margin.left - margin.right,
+                    h = 400 - margin.top - margin.bottom;
+
+
+                var svg = d3.select("body")
+                    .append("svg")
+                    .attr("width", w + margin.left
+                                    + margin.right)
+                    .attr("height", h + margin.top
+                                    + margin.bottom)
+                    .append("g")
+                    .attr(  "transform",
+                            "translate("
+                            + margin.left
+                            + ","
+                            + margin.top
+                            + ")");
+
+                    var domainMax = d3.max(charts, function (d){return d[4];});
+
+                    var xScale = d3.scale.linear()
+                        .domain([0, 4])
+                        .range([0, w]);
+
+                    var yScale = d3.scale.log()
+                        .domain([.0001, domainMax])
+                        .range([h, 0])
+                        .clamp(true);
+
+                    var yAxis = d3.svg.axis()
+                        .scale(yScale)
+                        .orient("left");
+
+                    var box = svg.selectAll("boxChart")
+                        .data(charts)
+                        .enter()
+                        .append("g")
+                        .attr("shape-rendering", "crispEdges");
+
+                    var boxW = 80;
+
+                    box.append("rect")
+                        .attr("x", 1)
+                        .attr("y", 1)
+                        .attr("width", boxW)
+                        .attr("height",
+                                function (d) {
+                                    var box_top = yScale(d[3]);
+                                    var box_bottom = yScale(d[1]);
+                                    return (box_bottom - box_top);
+                                })
+                        .attr("fill", "#fff")
+                        .attr("stroke", "#000")
+                        .attr("stroke-width", "1px")
+                        .attr("transform",
+                                function(d, i) {
+                                    return "translate("
+                                    + (xScale(i + 1) - (boxW/2))
+                                    + ","
+                                    + (yScale(d[3]) + margin.top)
+                                    + ")";
+                                });
+                    box.append("line")
+                        .attr("stroke", "black")
+                        .attr("stroke-width", "1px")
+                        .attr("x1",
+                                function(d, i){
+                                    return (xScale(i + 1) - (boxW/2));
+                                })
+                        .attr("x2",
+                                function(d, i){
+                                    return (xScale(i + 1) + (boxW/2));
+                                })
+                        .attr("y1",
+                                function(d){
+                                    return (yScale(d[2]) + margin.top);
+                                })
+                        .attr("y2",
+                                function(d){
+                                    return (yScale(d[2]) + margin.top);
+                                });
+
+                    box.append("line")
+                        .attr("stroke", "black")
+                        .attr("stroke-width", "1px")
+                        .attr("x1",
+                                function(d, i){
+                                    return xScale(i + 1);
+                                })
+                        .attr("x2",
+                                function(d, i){
+                                    return xScale(i + 1);
+                                })
+                        .attr("y1",
+                                function(d){
+                                    return (yScale(d[4]) + margin.top);
+                                })
+                        .attr("y2",
+                                function(d){
+                                    return (yScale(d[3]) + margin.top);
+                                });
+
+                    box.append("line")
+                        .attr("stroke", "black")
+                        .attr("stroke-width", "1px")
+                        .attr("x1",
+                                function(d, i){
+                                    return xScale(i + 1);
+                                })
+                        .attr("x2",
+                                function(d, i){
+                                    return xScale(i + 1);
+                                })
+                        .attr("y1",
+                                function(d){
+                                    return (yScale(d[0]) + margin.top);
+                                })
+                        .attr("y2",
+                                function(d){
+                                    return (yScale(d[1]) + margin.top + 1);
+                                });
+
+                    svg.append("g")
+                        .attr("class", "y axis")
+                        .attr("transform", "translate(0, " + margin.top + ")")
+                        .call(yAxis)
+                        .selectAll("text")
+                            .attr("dy", "2px");
+
+                    var xAxis = d3.svg.axis()
+                        .scale(xScale)
+                        .orient("bottom");
+
+                    svg.append("g")
+                        .attr("class", "x axis")
+                        .attr("transform", "translate(0," + (h + margin.top) + ")")
+                        .call(xAxis)
+                        .selectAll("text")
+                            .attr("dy", "5px");
+
+                    svg.append("text")
+                        .attr("class", "x label")
+                        .attr("font-family", "sans-serif")
+                        .attr("font-size", "10px")
+                        .attr("transform", "translate("
+                                + (w/2)
+                                + " ,"
+                                + (h + margin.bottom + margin.top - 14)
+                                + ")")
+                        .attr("text-anchor", "middle")
+                        .text("Number of Classes");
+
+                    svg.append("text")
+                        .attr("class", "y label")
+                        .attr("font-family", "sans-serif")
+                        .attr("font-size", "10px")
+                        .attr("text-anchor", "middle")
+                        .attr("transform", "rotate(-90)")
+                        .attr("y", 10 - margin.left)
+                        .attr("x", 0 - (h/2))
+                        .text("Branch Length");
+
+                    svg.append("text")
+                        .attr("class", "figure title")
+                        .attr("text-anchor", "middle")
+                        .attr("font-size", "14")
+                        .attr("font-weight", "bold")
+                        .attr("font-family", "sans-serif")
+                        .attr("transform", "translate("
+                                + (w/2)
+                                + " ,"
+                                + margin.top/2
+                                + ")")
+                        .text("Branch length vs rate class number");
+
+                    svg.selectAll(".axis path")
+                        .attr("fill", "none")
+                        .attr("stroke", "#000")
+                        .attr("shape-rendering", "crispEdges");
+
+                    svg.selectAll(".axis line")
+                        .attr("fill", "none")
+                        .attr("stroke", "#000")
+                        .attr("shape-rendering", "crispEdges");
+
+                    svg.selectAll(".axis text")
+                        .attr("font-family", "sans-serif")
+                        .attr("font-size", "8px");
+                    });
+        </script>
+    </body>
+</html>
