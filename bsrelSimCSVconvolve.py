@@ -215,6 +215,13 @@ def run_batch(buffer, prefixes):
         buffer = concat_buffers(buffer, buffer2)
     return buffer
 
+def get_prefixes(sim_dir):
+    import glob
+    import re
+    file_list = glob.glob(sim_dir + os.sep + "*")
+    file_list = [a for a in file_list if re.search("^\w+\/\w+\.\d+$", a) != None]
+    return file_list
+
 # XXX Batch this so it can run all at once and concatenate them...
 if __name__ == "__main__":
     if len(sys.argv) == 4 and sys.argv[1] == "-d":
@@ -222,8 +229,9 @@ if __name__ == "__main__":
         sim_dir = sys.argv[2]
         output_filename = sys.argv[3]
         buffer = []
-        prefixes = [os.path.join(sim_dir, "longPy." + str(number)) for number in
-        range(0,10000)]
+        #prefixes = [os.path.join(sim_dir, "longPy." + str(number)) for number in
+        #range(0,10000)]
+        prefixes = get_prefixes(sim_dir)
         buffer = run_batch(buffer, prefixes)
         write_buffer(buffer, output_filename)
     elif len(sys.argv) == 4:
