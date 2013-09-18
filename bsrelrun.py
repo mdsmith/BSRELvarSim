@@ -44,11 +44,14 @@ def run_BSREL(  set_file_name,
                         + str(rep)
                         + '.recovered";\n')
 
-    batchfile.write('ExecuteAFile' \
+    batchfile.write('ExecuteAFile'
                     #'("/usr/local/lib/hyphy/TemplateBatchFiles/BranchSiteREL.bf"'
                     #'("/home/martin/Software/multimodelBSREL/multiBSREL.bf"'
-                    '("multiBSREL.bf"'
-                    ', inputRedirect);')
+                    + '("'
+                    + os.path.dirname(os.path.abspath(__file__))
+                    + os.sep
+                    + 'multiBSREL.bf"'
+                    + ', inputRedirect);')
     batchfile.close()
     call_list = [   'bpsh',
                     str(nodes[nodeI]),
