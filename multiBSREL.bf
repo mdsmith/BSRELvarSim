@@ -1,13 +1,9 @@
 RequireVersion ("2.1320130313");
 
-// XXX make the BSREL3 file outputs different
-// XXX Check to make sure both BSREL and BSREL3 can be run
-// XXX make it so that BSREL3 doesn't have to start with everything back at
-// one
-
 PRINT_MG94 = 1;
 RUN_BSREL = 1;
 RUN_BSREL3 = 1;
+
 VERBOSITY_LEVEL				= 0;
 maximum_number_of_omegas   = 10;
 skipCodeSelectionStep 		= 0;
@@ -57,38 +53,46 @@ bNames						 = BranchName (givenTree, -1);
 
 //******* SELECT WHICH BRANCHES TO TEST ********//
 
-selectTheseForTesting = {totalBranchCount + 2, 2};
-selectTheseForTesting [0][0] = "None"; selectTheseForTesting [0][1] = "Just fit the branch-site REL model";
-selectTheseForTesting [1][0] = "All";  selectTheseForTesting [1][1] = "Test all branches";
-
-for (k = 0; k < totalBranchCount; k = k+1) {
-    selectTheseForTesting [k+2][0] = bNames[k];
-    selectTheseForTesting [k+2][1] = "Test branch '" + bNames[k] + "'";
-    
-}
-
-ChoiceList  (whichBranchesToTest,"Which branches to test?",0,NO_SKIP,selectTheseForTesting);
-
-if (whichBranchesToTest[0] < 0) {
-    return 1;
-}
-
 selectedBranches = {};
-for (k = 0; k < Columns (whichBranchesToTest); k += 1) {
-    if (whichBranchesToTest [k] == 0) {
-        selectedBranches = {}; break;
+
+if (doSynRateVariation == 0) {
+    selectTheseForTesting = {totalBranchCount + 2, 2};
+    selectTheseForTesting [0][0] = "None"; selectTheseForTesting [0][1] = "Just fit the branch-site REL model";
+    selectTheseForTesting [1][0] = "All";  selectTheseForTesting [1][1] = "Test all branches";
+
+    for (k = 0; k < totalBranchCount; k = k+1) {
+        selectTheseForTesting [k+2][0] = bNames[k];
+        selectTheseForTesting [k+2][1] = "Test branch '" + bNames[k] + "'";
+    
     }
-    if (whichBranchesToTest [k] == 1) {
-        for (k = 0; k <  totalBranchCount; k += 1) {
-            selectedBranches[k] = 1;
+
+    ChoiceList  (whichBranchesToTest,"Which branches to test?",0,NO_SKIP,selectTheseForTesting);
+
+
+    if (whichBranchesToTest[0] < 0) {
+        return 1;
+    }
+
+    for (k = 0; k < Columns (whichBranchesToTest); k += 1) {
+        if (whichBranchesToTest [k] == 0) {
+            selectedBranches = {}; break;
         }
-        break;
+        if (whichBranchesToTest [k] == 1) {
+            for (k = 0; k <  totalBranchCount; k += 1) {
+                selectedBranches[k] = 1;
+            }
+            break;
+        }
+        selectedBranches [whichBranchesToTest [k] - 2] = 1;
     }
-    selectedBranches [whichBranchesToTest [k] - 2] = 1;
 }
 
-fprintf (stdout, "Selected the following branches for testing");
-selectedBranches["printSelectedBranches"][""];
+if (Abs (selectedBranches)) {
+    fprintf (stdout, "Selected the following branches for testing");
+    selectedBranches["printSelectedBranches"][""];
+} else {
+    fprintf (stdout, "No branch by branch testing will be performed");
+}
 
 function printSelectedBranches (key, value) {
     fprintf (stdout, "\n\t", bNames[0+key]);
@@ -109,6 +113,7 @@ branch_length_column = 7;
 
 fprintf (PROMPT_FOR_FILE, CLEAR_FILE, KEEP_OPEN,"Branch,Mean_dNdS,RateClasses,OmegaOver1,WtOmegaOver1,LRT,p,p_Holm,BranchLength");
 csvFilePath = LAST_FILE_PATH;
+
 if (PRINT_MG94 == 1) {
     mg94csvFilePath = csvFilePath + ".mglocal.csv";
     fprintf(mg94csvFilePath, CLEAR_FILE, KEEP_OPEN, "Branch,Mean_dNdS,BranchLength");
@@ -117,6 +122,7 @@ if (PRINT_MG94 == 1) {
 fprintf 					  (stdout, "[PHASE 0] Fitting the local MG94 (no site-to-site variation) to obtain initial parameter estimates\n");
 
 lfOut	= csvFilePath + ".mglocal.fit";
+
 
 if (_reload_local_fit) {
     ExecuteAFile (lfOut);
@@ -128,8 +134,10 @@ if (_reload_local_fit) {
 
 } else {
     LikelihoodFunction	base_LF	 = (dsf, givenTree);
+    T0 = Time(1);
     Optimize					  (res_base,base_LF);
-     LIKELIHOOD_FUNCTION_OUTPUT = 7;
+    OPTIMIZATION_TIME_HARD_LIMIT = (Time(1)-T0)*4;
+    LIKELIHOOD_FUNCTION_OUTPUT = 7;
     fprintf (lfOut, CLEAR_FILE, base_LF);
     LIKELIHOOD_FUNCTION_OUTPUT = 2;
 
@@ -141,7 +149,7 @@ LoadFunctionLibrary			 ("DescriptiveStatistics");
 
 //GetInformation	   		   (varNames, "givenTree\\..*\\.omega1");
 //localOmegaValues			 = {totalBranchCount,1}["Eval(varNames[_MATRIX_ELEMENT_ROW_])"];
-
+//
 GetInformation(varNames, "givenTree\\..*\\.nonsyn");
 localNonSynValues			 = {totalBranchCount,1}["Eval(varNames[_MATRIX_ELEMENT_ROW_])"];
 GetInformation(varNames, "givenTree\\..*\\.syn");
@@ -215,17 +223,12 @@ if (RUN_BSREL == 1) {
 
     rate_classes_by_branch = {};
 
-    //fprintf(stdout, sortedBLs);
 
 
     for (k = 0; k < totalBranchCount; k+=1) {
         reordered_index = sortedBLs[totalBranchCount-k-1][1];
         //reordered_index = sortedBLs[k][1];
         local_branch_name = bNames[reordered_index];
-
-        //fprintf(stdout, local_branch_name, "\n");
-        //fprintf(stdout, sortedBLs[totalBranchCount-k-1][0], "\n");
-
         accepted_rates_count = 1;
         
         branch_name_to_test_base = "stepupTree.`local_branch_name`";
@@ -314,7 +317,7 @@ if (RUN_BSREL == 1) {
                      "1": {{0.0,0.25,0.5,1.0,5.0}},
                      "2": {{0.98}{0.90}{0.75}{0.5}{0.25}}},
                     {"0": "`branch_name_to_test`.syn" + (accepted_rates_count+1),
-                     "1": "`branch_name_to_test`.syn" + (accepted_rates_count+1),
+                     "1": "`branch_name_to_test`.nonsyn" + (accepted_rates_count+1),
                      "2": "`branch_name_to_test`.Paux" + (accepted_rates_count)},
                      "stepupLF");
                 
@@ -322,7 +325,7 @@ if (RUN_BSREL == 1) {
             }
             
             Optimize                      (res, stepupLF);
-            test_IC = getIC (res[1][0], current_parameter_count + 2, sample_size);
+            test_IC = getIC (res[1][0], current_parameter_count + 2 + doSynRateVariation, sample_size);
             fprintf 					  (stdout, "\n[PHASE 1] Branch ", local_branch_name, " log(L) = ", res[1][0], ", IC = ", test_IC, "\n\t", accepted_rates_count+1, " rate clases\n\t");
             printNodeDesc ("mixtureTree.`local_branch_name`", accepted_rates_count + 1);
         }
@@ -359,6 +362,8 @@ if (RUN_BSREL == 1) {
         fprintf (stdout, "\n\t", branch_name_to_test, " has ", rate_classes_by_branch [k], " site rate classes");
     }
     fprintf (stdout, "\n");
+
+    OPTIMIZATION_TIME_HARD_LIMIT = 1e26;
 
     LikelihoodFunction three_LF   = (dsf,mixtureTree);
     unconstrainGlobalParameters ("three_LF");
@@ -577,10 +582,10 @@ if (RUN_BSREL == 1) {
     if (RUN_BSREL3 == 0) {
         return pValueByBranch;
     }
+
 }
 
-
-if (RUN_BSREL3 == 1) {
+if (RUN_BSREL3 = 1) {
     csvFilePath = csvFilePath + ".BSREL";
     fprintf(csvFilePath, CLEAR_FILE, KEEP_OPEN, "Branch,Mean_dNdS,RateClasses,OmegaOver1,WtOmegaOver1,LRT,p,p_Holm,BranchLength");
 
@@ -633,17 +638,12 @@ if (RUN_BSREL3 == 1) {
 
     rate_classes_by_branch = {};
 
-    //fprintf(stdout, sortedBLs);
 
 
     for (k = 0; k < totalBranchCount; k+=1) {
         reordered_index = sortedBLs[totalBranchCount-k-1][1];
         //reordered_index = sortedBLs[k][1];
         local_branch_name = bNames[reordered_index];
-
-        //fprintf(stdout, local_branch_name, "\n");
-        //fprintf(stdout, sortedBLs[totalBranchCount-k-1][0], "\n");
-
         accepted_rates_count = 1;
         
         branch_name_to_test_base = "stepupTree.`local_branch_name`";
@@ -702,8 +702,6 @@ if (RUN_BSREL3 == 1) {
         fprintf 					  (stdout, "\n[PHASE 1] Branch ", local_branch_name, " log(L) = ", Format(res[1][0],8,3), ", IC = ", Format (test_IC,8,3), "\n\t2 rate clases\n\t");
         printNodeDesc ("mixtureTree.`local_branch_name`", 2);
         
-        //while (test_IC < current_IC) {
-        // XXX make this go up to 3 (or 11)
         while (accepted_rates_count < 3) {
             accepted_rates_count += 1;
             current_parameter_count += 2 + doSynRateVariation;
@@ -734,7 +732,7 @@ if (RUN_BSREL3 == 1) {
                      "1": {{0.0,0.25,0.5,1.0,5.0}},
                      "2": {{0.98}{0.90}{0.75}{0.5}{0.25}}},
                     {"0": "`branch_name_to_test`.syn" + (accepted_rates_count+1),
-                     "1": "`branch_name_to_test`.syn" + (accepted_rates_count+1),
+                     "1": "`branch_name_to_test`.nonsyn" + (accepted_rates_count+1),
                      "2": "`branch_name_to_test`.Paux" + (accepted_rates_count)},
                      "stepupLF");
                 
@@ -742,7 +740,7 @@ if (RUN_BSREL3 == 1) {
             }
             
             Optimize                      (res, stepupLF);
-            test_IC = getIC (res[1][0], current_parameter_count + 2, sample_size);
+            test_IC = getIC (res[1][0], current_parameter_count + 2 + doSynRateVariation, sample_size);
             fprintf 					  (stdout, "\n[PHASE 1] Branch ", local_branch_name, " log(L) = ", res[1][0], ", IC = ", test_IC, "\n\t", accepted_rates_count+1, " rate clases\n\t");
             printNodeDesc ("mixtureTree.`local_branch_name`", accepted_rates_count + 1);
         }
@@ -779,6 +777,8 @@ if (RUN_BSREL3 == 1) {
         fprintf (stdout, "\n\t", branch_name_to_test, " has ", rate_classes_by_branch [k], " site rate classes");
     }
     fprintf (stdout, "\n");
+
+    OPTIMIZATION_TIME_HARD_LIMIT = 1e26;
 
     LikelihoodFunction three_LF   = (dsf,mixtureTree);
     unconstrainGlobalParameters ("three_LF");
@@ -995,6 +995,7 @@ if (RUN_BSREL3 == 1) {
     fprintf (treePath, CLEAR_FILE, psTree);
 
     return pValueByBranch;
+
 }
 
 return 0;

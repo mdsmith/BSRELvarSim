@@ -9,10 +9,14 @@ def run_BSREL(  set_file_name,
                 rep,
                 node_processes = local_processes,
                 nodes = node_list):
+    selectionTest = False
     batchfile = open(set_file_name + ".sim." + str(rep) + ".recover.bf", 'w')
     batchfile.write('inputRedirect = {};\n\n')
     batchfile.write('inputRedirect["00"]= "Universal";\n')
-    batchfile.write('inputRedirect["01"]= "No";\n')
+    if selectionTest:
+        batchfile.write('inputRedirect["01"]= "No";\n')
+    else:
+        batchfile.write('inputRedirect["01"]= "Yes";\n')
     batchfile.write('inputRedirect["02"]="'
                     + os.path.dirname(os.path.abspath(__file__))
                     + "/"
@@ -21,15 +25,25 @@ def run_BSREL(  set_file_name,
                     + str(rep)
                     + '";\n')
     batchfile.write('inputRedirect["03"]= "Y";\n')
-    batchfile.write('inputRedirect["04"]= "All";\n')
-    batchfile.write('inputRedirect["05"]= "";\n')
-    batchfile.write('inputRedirect["06"]="'
-                    + os.path.dirname(os.path.abspath(__file__))
-                    + "/"
-                    + set_file_name
-                    + '.sim.'
-                    + str(rep)
-                    + '.recovered";\n')
+    if selectionTest:
+        batchfile.write('inputRedirect["04"]= "All";\n')
+        batchfile.write('inputRedirect["05"]= "";\n')
+        batchfile.write('inputRedirect["06"]="'
+                        + os.path.dirname(os.path.abspath(__file__))
+                        + "/"
+                        + set_file_name
+                        + '.sim.'
+                        + str(rep)
+                        + '.recovered";\n')
+    else:
+        batchfile.write('inputRedirect["04"]="'
+                        + os.path.dirname(os.path.abspath(__file__))
+                        + "/"
+                        + set_file_name
+                        + '.sim.'
+                        + str(rep)
+                        + '.recovered";\n')
+
     batchfile.write('ExecuteAFile' \
                     #'("/usr/local/lib/hyphy/TemplateBatchFiles/BranchSiteREL.bf"'
                     #'("/home/martin/Software/multimodelBSREL/multiBSREL.bf"'
