@@ -1,16 +1,18 @@
 #! /usr/bin/env python
 
 import os, sys, subprocess, time
+import glob, re
+from subprocess import call
+from threading import Thread
+from queue import Queue, Empty
 node_list = range(13,31)
 local_processes = {}
 
-def run_BSREL(  set_file_name,
-                nodeI,
-                rep,
-                node_processes = local_processes,
-                nodes = node_list):
+jobs = Queue()
+
+def run_BSREL(node, file_name):
     selectionTest = False
-    batchfile = open(set_file_name + ".sim." + str(rep) + ".recover.bf", 'w')
+    batchfile = open(file_name + ".recover.bf", 'w')
     batchfile.write('inputRedirect = {};\n\n')
     batchfile.write('inputRedirect["00"]= "Universal";\n')
     if selectionTest:
@@ -18,35 +20,21 @@ def run_BSREL(  set_file_name,
     else:
         batchfile.write('inputRedirect["01"]= "Yes";\n')
     batchfile.write('inputRedirect["02"]="'
-                    + os.path.dirname(os.path.abspath(__file__))
-                    + "/"
-                    + set_file_name
-                    + '.sim.'
-                    + str(rep)
+                    + file_name
                     + '";\n')
     batchfile.write('inputRedirect["03"]= "Y";\n')
     if selectionTest:
         batchfile.write('inputRedirect["04"]= "All";\n')
         batchfile.write('inputRedirect["05"]= "";\n')
         batchfile.write('inputRedirect["06"]="'
-                        + os.path.dirname(os.path.abspath(__file__))
-                        + "/"
-                        + set_file_name
-                        + '.sim.'
-                        + str(rep)
+                        + file_name
                         + '.recovered";\n')
     else:
         batchfile.write('inputRedirect["04"]="'
-                        + os.path.dirname(os.path.abspath(__file__))
-                        + "/"
-                        + set_file_name
-                        + '.sim.'
-                        + str(rep)
+                        + file_name
                         + '.recovered";\n')
 
     batchfile.write('ExecuteAFile'
-                    #'("/usr/local/lib/hyphy/TemplateBatchFiles/BranchSiteREL.bf"'
-                    #'("/home/martin/Software/multimodelBSREL/multiBSREL.bf"'
                     + '("'
                     + os.path.dirname(os.path.abspath(__file__))
                     + os.sep
@@ -54,55 +42,63 @@ def run_BSREL(  set_file_name,
                     + ', inputRedirect);')
     batchfile.close()
     call_list = [   'bpsh',
-                    str(nodes[nodeI]),
+                    str(node),
                     'HYPHYMP',
-                    os.path.dirname(os.path.abspath(__file__))
-                        + os.sep
-                        + set_file_name
-                        + '.sim.'
-                        + str(rep)
-                        + '.recover.bf']
-    output_file = open( os.path.dirname(os.path.abspath(__file__))
-                        + os.sep
-                        + set_file_name
-                        + '.sim.'
-                        + str(rep)
-                        + '.recover.txt', 'w')
-    node_processes[str(nodeI)] = subprocess.Popen( call_list,
-                                                    stdout=output_file)
+                    file_name + '.recover.bf']
+    output_file = open( file_name + '.recover.txt', 'w')
+    print(call_list)
+    call(call_list, stdout=output_file)
     time.sleep(1)
 
-def run_all_BSREL(  num_dist,
-                    out_file,
-                    num_reps,
-                    node_processes = local_processes,
-                    nodes = node_list):
-    dist_done = 0
-    while dist_done < num_dist:
-        for this_dist in range(min(num_dist-dist_done, len(nodes))):
-            dist_num = this_dist + dist_done
-            for rep in range(int(num_reps)):
-                run_BSREL(  out_file + "." + str(dist_num),
-                            this_dist,
-                            rep,
-                            node_processes,
-                            nodes)
-        for sub_p in node_processes.values():
-            sub_p.wait()
-        dist_done += min(num_dist-dist_done, len(nodes))
+def run_all_BSREL(file_list):
+    abspath = os.path.dirname(os.path.abspath(__file__)) + os.sep
+    for file_name in file_list:
+        if file_name[0] != os.sep:
+            file_name = abspath + file_name
+        jobs.put(file_name)
 
-# XXX allow this to take an infile
+def run_job(node):
+    while True:
+        try:
+            bsrel_args = jobs.get(block=False)
+            run_BSREL(node, bsrel_args)
+            jobs.task_done()
+        except Empty:
+            break
+
+def get_files(indir):
+    file_list = glob.glob(indir + os.sep + "*.sim.*")
+    file_list = [a for a in file_list
+                if re.search("^\w+\/\w+\.\d+\.sim\.\d+$", a) != None]
+    return file_list
+
+def nodes(num):
+    import shlex
+    from subprocess import Popen, PIPE
+    cmd = shlex.split('''beomap --all-nodes --no-local --exclude
+    0:1:2:3:4:5:6''')
+    proc = Popen(cmd, stdout=PIPE)
+    stdout, _ = proc.communicate()
+    node_list = [int(node) for node in
+                stdout.decode('utf-8').strip().split(':')]
+    node_list.reverse()
+    node_list = node_list[:num]
+    return node_list
+
 if __name__ == "__main__":
-    if len(sys.argv) == 4:
-        num_dist, out_file, num_reps = sys.argv[1:4]
-        run_all_BSREL(  int(num_dist),
-                        out_file,
-                        int(num_reps))
+    if len(sys.argv) == 2:
+        indir = sys.argv[1]
+        file_list = get_files(indir)
+        run_all_BSREL(file_list)
     else:
         print(  "Valid usage:\n" \
-                "\t- bsrelrun <num_dist> <out_file> <num_reps>\n" \
+                "\t- bsrelrun <indir>\n" \
                 "Where:\n" \
-                "\t- <num_dist>: number of distributions\n" \
-                "\t- <out_file>: output filename (may include path)\n" \
-                "\t- <num_reps>: the number of reps you simulated\n",
+                "\t- <indir>: directory containing files to run BSREL on\n",
                 file=sys.stderr)
+        exit(1)
+    for node in nodes(24):
+        t = Thread(target=run_job, args=(node,))
+        t.daemon = True
+        t.start()
+    jobs.join()
