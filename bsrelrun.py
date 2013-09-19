@@ -67,7 +67,12 @@ def run_job(node):
             break
 
 def get_files(indir):
-    file_list = glob.glob(indir + os.sep + "*.sim.*")
+    if os.path.isdir(indir):
+        file_list = glob.glob(indir + os.sep + "*.sim.*")
+    else:
+        indir_dir = os.path.dirname(os.path.abspath(indir))
+        indir_file = os.path.basename(os.path.abspath(indir))
+        file_list = glob.glob(indir_dir + os.sep + "*"+indir_file + "*.sim.*")
     print(file_list)
     file_list = [a for a in file_list
                 if re.search("/\w+\.\d+\.sim\.\d+$", a) != None]

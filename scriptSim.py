@@ -450,19 +450,19 @@ def process_results(input, results):
     return 0
 
 if len(sys.argv) != 7:
-    print(  "Valid usage:\n\t- scriptSim [settings/simulate/bsrel/process] \n" \
-            "\t[settings/simulate/bsrel/process] [number of distributions] \n" \
-            "\t[number of replicates] [length of sequences] [output file " \
-            "name]\n" \
-            "\t\t- [settings/simulation/bsrel/process] x2: the first and \n" \
+    print(  "Valid usage:\n\t- scriptSim <settings/simulate/bsrel/process> \n" \
+            "\t<settings/simulate/bsrel/process> <number of distributions> \n" \
+            "\t<number of replicates> <length of sequences> <output file " \
+            "name>\n" \
+            "\t\t- <settings/simulation/bsrel/process> x2: the first and \n" \
             "\t\t  last steps to perform. Previous data must exist in the \n" \
             "\t\t  current directory. \n " \
-            "\t\t- [number of distributions]: The number of times " \
+            "\t\t- <number of distributions>: The number of times " \
             "generate_settings is called\n" \
-            "\t\t- [number of replicates]: The number of replicates " \
+            "\t\t- <number of replicates>: The number of replicates " \
             "HyPhy is told to run\n" \
-            "\t\t- [length of sequences]: In codons \n" \
-            "\t\t- [output file name]: Will have dist numbers appended\n",
+            "\t\t- <length of sequences>: In codons \n" \
+            "\t\t- <output file name>: Will have dist numbers appended\n",
             file=sys.stderr)
     exit(1)
 else:
@@ -523,7 +523,7 @@ if start_step <= 3 and end_step >=3:
                     #numReps,
                     #node_processes,
                     #node)
-    bsrel_main(".")
+    bsrel_main(outFile)
     end = time.time()
     bsrel_time += end - start
 
