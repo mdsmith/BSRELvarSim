@@ -68,8 +68,9 @@ def run_job(node):
 
 def get_files(indir):
     file_list = glob.glob(indir + os.sep + "*.sim.*")
+    print(file_list)
     file_list = [a for a in file_list
-                if re.search("^\w+\/\w+\.\d+\.sim\.\d+$", a) != None]
+                if re.search("/\w+\.\d+\.sim\.\d+$", a) != None]
     return file_list
 
 def nodes(num):
@@ -85,11 +86,20 @@ def nodes(num):
     node_list = node_list[:num]
     return node_list
 
+def bsrel_main(indir):
+    file_list = get_files(indir)
+    print(file_list)
+    run_all_BSREL(file_list)
+    for node in nodes(24):
+        t = Thread(target=run_job, args=(node,))
+        t.daemon = True
+        t.start()
+    jobs.join()
+
 if __name__ == "__main__":
     if len(sys.argv) == 2:
         indir = sys.argv[1]
-        file_list = get_files(indir)
-        run_all_BSREL(file_list)
+        bsrel_main(indir)
     else:
         print(  "Valid usage:\n" \
                 "\t- bsrelrun <indir>\n" \
@@ -97,8 +107,3 @@ if __name__ == "__main__":
                 "\t- <indir>: directory containing files to run BSREL on\n",
                 file=sys.stderr)
         exit(1)
-    for node in nodes(24):
-        t = Thread(target=run_job, args=(node,))
-        t.daemon = True
-        t.start()
-    jobs.join()

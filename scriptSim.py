@@ -5,7 +5,7 @@
 from treegen import get_tree, get_unrooted_tree
 from simsetgen import generate_all_settings
 from simrun import run_simulation
-from bsrelrun import run_all_BSREL
+from bsrelrun import bsrel_main
 from bsrelSimParsers import (   recover_csv, recover_fit, recover_simulated,
                                 recover_settings)
 import sys
@@ -480,8 +480,8 @@ stages = {  "SETTINGS" : 1,
 
 start_step = stages [start_step.upper()]
 end_step = stages [end_step.upper()]
-print("start: ", start_step)
-print("end: ", end_step)
+#print("start: ", start_step)
+#print("end: ", end_step)
 
 results = {}
 results_with_lengths = {}
@@ -518,11 +518,12 @@ if start_step <= 3 and end_step >=3:
     # XXX maybe include an option to specify these as input?
     # e.g., have 100 simulations, run BSREL on 3...
     start = time.time()
-    run_all_BSREL(  numDist,
-                    outFile,
-                    numReps,
-                    node_processes,
-                    node)
+    #run_all_BSREL(  numDist,
+                    #outFile,
+                    #numReps,
+                    #node_processes,
+                    #node)
+    bsrel_main(".")
     end = time.time()
     bsrel_time += end - start
 
