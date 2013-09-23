@@ -228,9 +228,15 @@ def format_results(taxa, taxa_dict):
     entry["omegas"] = []
     entry["props"] = []
     omega = False
+    syn = False
+    mulsyn = False
     for key in taxa_dict.keys():
         if key == 't':
             omega = True
+        elif key == 'syn':
+            syn = True
+        elif key == 'syn1':
+            mulsyn = True
     if omega == True:
         entry["length"] = taxa_dict["t"]
         for key in taxa_dict.keys():
@@ -239,13 +245,36 @@ def format_results(taxa, taxa_dict):
             if key[:4] == "Paux":
                 entry["props"].append(taxa_dict[key])
         entry["props"] = convolve_props(entry["props"])
-    else:
+    elif syn == True:
         entry["length"] = taxa_dict['syn']
         if taxa_dict['syn'] == '0':
             entry["omegas"].append('20000')
         else:
             entry["omegas"].append(str(float(taxa_dict["nonsyn"])/float(taxa_dict["syn"])))
         entry["props"] = 1
+    elif mulsyn == True:
+        syns = []
+        nonsyns = []
+        pauxs = []
+        for key,value in taxa_dict.items():
+            if key[:3] == 'syn':
+                syns.append(taxa_dict[key])
+                nonsyns.append(taxa_dict["nonsyn" + key[-1]])
+                try:
+                    pauxs.append(taxa_dict["Paux" + key[-1]])
+                except KeyError:
+                    continue
+        props = convolve_props(pauxs)
+        length = sum([float(syns[i]) * float(props[i]) for i in range(len(syns))])
+        print(length)
+        omegas = [  float(nonsyns[i])/float(syns[i]) if float(syns[i]) != 0 else 20000 for i in
+                    range(len(syns))]
+        print(omegas)
+        entry["length"] = length
+        entry["omegas"] = omegas
+        entry["props"] = props
+    else:
+        print("Entry unrecognizable")
     return entry
 
 def convolve_props(prop_list):
