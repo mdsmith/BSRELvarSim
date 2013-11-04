@@ -6,8 +6,9 @@
 import csv
 import os
 import sys
-from bsrelSimParsers import (   recover_csv, recover_fit, recover_simulated,
-                                recover_settings, recover_csv_mg94)
+import argparse
+from bsrelSimParsers import (   recover_csv, recover_settings,
+                                recover_csv_mg94)
 
 #def append_fit(buffer, filename):
 #def append_simulated(buffer, filename):
@@ -224,31 +225,60 @@ def get_prefixes(sim_dir):
 
 # XXX Batch this so it can run all at once and concatenate them...
 if __name__ == "__main__":
-    if len(sys.argv) == 4 and sys.argv[1] == "-d":
-        # Do dir stuff
-        sim_dir = sys.argv[2]
-        output_filename = sys.argv[3]
-        buffer = []
-        #prefixes = [os.path.join(sim_dir, "longPy." + str(number)) for number in
-        #range(0,10000)]
-        prefixes = get_prefixes(sim_dir)
-        buffer = run_batch(buffer, prefixes)
-        write_buffer(buffer, output_filename)
-    elif len(sys.argv) == 4:
-        csv_filename = sys.argv[1]
-        settings_filename = sys.argv[2]
-        output_filename = sys.argv[3]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("input", help="input csv file or directory")
+    parser.add_argument("output", help="output file")
+    parser.add_argument("--whole-tree",
+                        help="treat the tree as a single unit, rather than \
+                        the branches independently",
+                        action='store_true')
+    parser.add_argument("--settings",
+                        help="manually specify a settings file when \
+                        specifying a csv file")
+    args = parser.parse_args()
 
-        buffer = []
-        append_csv(buffer, csv_filename)
-        append_settings(buffer, settings_filename)
-        # append_settings(buffer, settings_filename)
-        # append_simulated(buffer, settings_filename)
-        # append_fit(buffer, settings_filename)
+    buffer = []
+    # dir input:
+    if args.settings == None:
+        sim_dir = args.input
+        output_filename = args.output
+        prefixes = get_prefixes(sim_dir)
+        buffer = run_batch(buffer,prefixes)
         write_buffer(buffer, output_filename)
     else:
-        print(  "Valid usage:\n\t- bsrelSimCSVconvolve.py csv_filename " \
-                "settings_filename output_filename\n" \
-                "\t- Or bsrelSimCSVconvolve.py -d in_dir out_file\n",
-                file = sys.stderr)
-        exit(1)
+        csv_filename = args.input
+        settings_filename = args.settings
+        output_filename = args.output
+        append_csv(buffer, csv_filename)
+        append_settings(buffer, settings_filename)
+        write_buffer(buffer, output_filename)
+
+
+#    if len(sys.argv) == 4 and sys.argv[1] == "-d":
+#        # Do dir stuff
+#        sim_dir = sys.argv[2]
+#        output_filename = sys.argv[3]
+#        buffer = []
+#        #prefixes = [os.path.join(sim_dir, "longPy." + str(number)) for number in
+#        #range(0,10000)]
+#        prefixes = get_prefixes(sim_dir)
+#        buffer = run_batch(buffer, prefixes)
+#        write_buffer(buffer, output_filename)
+#    elif len(sys.argv) == 4:
+#        csv_filename = sys.argv[1]
+#        settings_filename = sys.argv[2]
+#        output_filename = sys.argv[3]
+#
+#        buffer = []
+#        append_csv(buffer, csv_filename)
+#        append_settings(buffer, settings_filename)
+#        # append_settings(buffer, settings_filename)
+#        # append_simulated(buffer, settings_filename)
+#        # append_fit(buffer, settings_filename)
+#        write_buffer(buffer, output_filename)
+#    else:
+#        print(  "Valid usage:\n\t- bsrelSimCSVconvolve.py csv_filename " \
+#                "settings_filename output_filename\n" \
+#                "\t- Or bsrelSimCSVconvolve.py -d in_dir out_file\n",
+#                file = sys.stderr)
+#        exit(1)
