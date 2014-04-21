@@ -7,7 +7,12 @@ import math
 import numpy as NP
 from treegen import get_unrooted_tree
 
-def generate_settings(num_taxa, out_name, numReps, lenSeqs, rate_classes_per_branch = -1):
+def generate_settings(  num_taxa,
+                        out_name,
+                        numReps,
+                        lenSeqs,
+                        alpha_sim,
+                        rate_classes_per_branch = -1):
     this_set = {}
     if rate_classes_per_branch >= 1:
         rate_class_assignments = [  rate_classes_per_branch
@@ -39,9 +44,13 @@ def generate_settings(num_taxa, out_name, numReps, lenSeqs, rate_classes_per_bra
 
     #for tax_name in range(1, num_taxa):
     for tax_name in range(1, (2*num_taxa) - 2):
-        this_set[str(tax_name)] = generate_taxa( tax_name,
-                                            rate_class_assignments[tax_name])
-        buffer.append(params_to_string(this_set[str(tax_name)]))
+        this_set[str(tax_name)] = generate_taxa(tax_name,
+                                                alpha_sim,
+                                                rate_class_assignments[tax_name])
+        if alpha_sim:
+            buffer.append(params_to_string_alpha(this_set[str(tax_name)]))
+        else:
+            buffer.append(params_to_string(this_set[str(tax_name)]))
 
     #this_set["Interior"] = generate_taxa( "Interior", 1)
     #buffer.append(params_to_string(this_set["Interior"]))
@@ -68,16 +77,36 @@ def params_to_string(param_list):
     entry += "}\n},\n"
     return entry
 
+def params_to_string_alpha(param_list):
+    entry = "\"" + param_list["name"] + "\" : {"
+    entry += "\t\"omegas\" : {"
+    for n,s,p in zip(param_list["nonsyns"], param_list["syns"], param_list["props"]):
+        entry += "\t{ " + str(n) + ", " + str(s) + ", "  + str(p) + "}\n"
+    entry += "}\n},\n"
+    return entry
+
 # redo these distributions properly, remove the prop vs omega sort.
-def generate_taxa(tax_name, num_rate_classes):
+def generate_taxa(  tax_name,
+                    alpha_sim,
+                    num_rate_classes):
     entry = {}
     entry["name"] = str(tax_name)
     length = NP.random.exponential(.25)
+    omegas = []
+    nonsyns = []
+    syns = []
     #length = 0.5
-    entry["length"] = length
-    omegas = sorted([NP.random.exponential((.5 + (10*i))) for i in range(num_rate_classes)])
-
-    # check omegas over one:
+    if not alpha_sim:
+        entry["length"] = length
+    #omegas = sorted([NP.random.exponential((.5 + (10*i))) for i in range(num_rate_classes)])
+    if alpha_sim:
+        nonsyns = sorted([NP.random.exponential((.15 + (10*i))) for i in range(num_rate_classes)])
+        syns = sorted([NP.random.exponential((.15 + (10*i))) for i in range(num_rate_classes)])
+        # check omegas over one:
+        omegas = [nonsyn/syn for nonsyn, syn in zip(nonsyns, syns)]
+    else:
+        omegas = sorted([NP.random.exponential((.15 + (10*i))) for i in range(num_rate_classes)])
+        # check omegas over one:
     under_one = False
     num_over_one = 0
     for omega in omegas:
@@ -88,12 +117,19 @@ def generate_taxa(tax_name, num_rate_classes):
     # XXX this makes sure that there is at least one omega less than one
     #if under_one == False:
         #omegas[0] = omegas[0] % 1
-    if num_over_one > 1:
-        for omegaI in range(len(omegas) - 1):
-            omegas[omegaI] = omegas[omegaI] % 1
+    if alpha_sim:
+        if num_over_one > 1:
+            for nonsynI in range(len(nonsyns) - 1):
+                nonsyns[nonsynI] = nonsyns[nonsynI] % 1
+        entry["nonsyns"] = nonsyns
+        entry["syns"] = syns
+    else:
+        if num_over_one > 1:
+            for omegaI in range(len(omegas) - 1):
+                omegas[omegaI] = omegas[omegaI] % 1
+        #omegas = [.5*i for i in range(1,num_rate_classes + 1)]
+        entry["omegas"] = omegas
 
-    #omegas = [.5*i for i in range(1,num_rate_classes + 1)]
-    entry["omegas"] = omegas
 
     props = []
     if len(omegas) > 1:
@@ -123,6 +159,7 @@ def generate_all_settings(  num_taxa,
                             num_reps,
                             len_seqs,
                             out_file,
+                            alpha_sim,
                             rate_classes_per_branch = -1):
     inputParameterSets = {}
     for this_dist in range(num_dist):
@@ -130,6 +167,7 @@ def generate_all_settings(  num_taxa,
                                         out_file +  "." + str(this_dist),
                                         num_reps,
                                         len_seqs,
+                                        alpha_sim,
                                         rate_classes_per_branch)
         inputParameterSets[str(this_dist)] = this_set
     # XXX this is a temporary holdover

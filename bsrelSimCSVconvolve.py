@@ -7,8 +7,11 @@ import csv
 import os
 import sys
 import argparse
-from bsrelSimParsers import (   recover_csv, recover_settings,
-                                recover_csv_mg94)
+import re
+from bsrelSimParsers import (   recover_csv,
+                                recover_settings,
+                                recover_csv_mg94,
+                                recover_GTRg_output)
 
 #def append_fit(buffer, filename):
 #def append_simulated(buffer, filename):
@@ -22,11 +25,12 @@ def meandnds(omegas, props):
 def append_BSREL3(buffer, filename):
     contents = recover_csv(filename)
     branch_order = [line[0] for line in buffer[1:]]
-    try:
-        len_column = rep_to_column(contents, "length", branch_order)
-    except KeyError:
-        print("Broken file: ", filename)
-        return buffer
+    # XXX
+    #try:
+    len_column = rep_to_column(contents, "length", branch_order)
+    #except KeyError:
+        #print("Broken file: ", filename)
+        #return buffer
 
     len_column[0] = "BSREL3_length"
     buffer = append_column(buffer, len_column)
@@ -36,6 +40,8 @@ def append_BSREL3(buffer, filename):
     props_column = rep_to_column(contents, "props", branch_order)
     omegas_column[0] = "BSREL3_meandnds"
     props_column[0] = "BSREL3_propOverOne"
+    p_holm_column = rep_to_column(contents, "pval", branch_order)
+    p_holm_column[0] = "BSREL3_pHolm"
 
     mean_omegas_column = [  meandnds(omegas, props)
                             for omegas,props in
@@ -73,16 +79,17 @@ def append_BSREL3(buffer, filename):
     buffer = append_column(buffer, mean_omegas_column)
     buffer = append_column(buffer, max_omega_column)
     buffer = append_column(buffer, max_prop_column)
+    buffer = append_column(buffer, p_holm_column)
     #print(buffer)
     return buffer
 
 def append_MG94(buffer, filename):
 # XXX may need to be configured to work with incomplete csv
-    try:
-        contents = recover_csv_mg94(filename)
-    except IndexError:
-        print("Broken file: ", filename)
-        return buffer
+    #try:
+    contents = recover_csv_mg94(filename)
+    #except IndexError:
+        #print("Broken file: ", filename)
+        #return buffer
     branch_order = [line[0] for line in buffer[1:]]
     len_column = rep_to_column(contents, "length", branch_order)
     len_column[0] = "MG94_length"
@@ -103,8 +110,28 @@ def append_MG94(buffer, filename):
     #print(buffer)
     return buffer
 
+# XXX
+def append_GTRg(buffer, filename):
+    contents = recover_GTRg_output(filename)
+    tree_dec = contents[-1]
+    names = re.findall(r"\w+:", tree_dec)
+    values = re.findall(r"\w+:(\d+\.\d+e-?\d+|\d+\.?\d*)", tree_dec)
+    len_dicts = {}
+    for key, value in zip(names,values):
+        len_dicts[key.strip(':')] = float(value)
+    #if re.findall(r"\d+e-?\d+", tree_dec) != []:
+        #print(len_dicts)
+    branch_order = [line[0] for line in buffer[1:]]
+    len_col = []
+    for index in branch_order:
+        len_col.append(len_dicts[index])
+    len_col.insert(0,"GTRg_BranchLengths")
+    buffer = append_column(buffer, len_col)
+    return buffer
+
+
 def append_settings(buffer, filename):
-    contents = recover_settings(filename)
+    contents, alpha_sim = recover_settings(filename)
     num_rows = len(buffer) - 1
     branch_order = [line[0] for line in buffer[1:]]
     len_column = rep_to_column(contents, "length", branch_order)
@@ -116,6 +143,11 @@ def append_settings(buffer, filename):
     props_column = rep_to_column(contents, "props", branch_order)
     omegas_column[0] = "Settings_meandnds"
     props_column[0] = "Settings_propOverOne"
+
+    class_count_column = rep_to_column(contents, "omegas", branch_order)
+    class_count_column[0] = "Settings_classCount"
+    class_count_column  = [len(row) for row in class_count_column[1:]]
+    class_count_column.insert(0, "Settings_classCount")
 
     mean_omegas_column = [  meandnds(omegas, props)
                             for omegas,props in
@@ -153,13 +185,34 @@ def append_settings(buffer, filename):
     buffer = append_column(buffer, mean_omegas_column)
     buffer = append_column(buffer, max_omega_column)
     buffer = append_column(buffer, max_prop_column)
+    buffer = append_column(buffer, class_count_column)
     #print(buffer)
     return buffer
 
-def append_csv(buffer, filename):
+def prefix_header(header, prefix):
+    header = header.split(",")
+    for i,name in enumerate(header):
+        header[i] = prefix + name
+    header = ",".join(header)
+    return header
+
+def append_csv(buffer, filename, prefix=""):
     file = open(filename, 'r')
     contents = file.readlines()
+    header = prefix_header(contents[0], prefix)
+    contents = [header] + contents[1:]
     buffer += contents
+    return buffer
+
+def concat_csv(buffer, filename, prefix=""):
+    file = open(filename, 'r')
+    contents = file.readlines()
+    header = prefix_header(contents[0], prefix)
+    contents = [header] + contents[1:]
+    content_columns = [ [row.split(',')[i] for row in contents]
+                        for i in range(len(header.split(',')))]
+    for column in content_columns:
+        buffer = append_column(buffer, column)
     return buffer
 
 def append_column(buffer, column):
@@ -206,14 +259,46 @@ def run_batch(buffer, prefixes):
     # for fileset in prefixes
     for prefix in prefixes:
         buffer2 = []
-        csv_filename = prefix + ".sim.0.recovered"
+        # XXX need to change for Omega/Alpha
+        #csv_filename = prefix + ".sim.0.recovered"
+        omega_filename = prefix + ".sim.0.recoveredOmega"
+        alpha_filename = prefix + ".sim.0.recoveredAlpha"
+        #if not os.path.isfile(csv_filename):
+            #continue
         settings_filename = prefix
-        append_csv(buffer2, csv_filename)
-        append_settings(buffer2, settings_filename)
-        append_BSREL3(buffer2, settings_filename + ".sim.0.recovered.BSREL")
-        append_MG94(buffer2, settings_filename + ".sim.0.recovered.mglocal.csv")
-        #append_csv(buffer2, settings_filename + ".mglocal.csv")
-        buffer = concat_buffers(buffer, buffer2)
+        try:
+            if os.path.isfile(omega_filename):
+                append_csv(buffer2, omega_filename, prefix="Omega_")
+                if os.path.isfile(alpha_filename):
+                    concat_csv(buffer2, alpha_filename, prefix="Alpha_")
+            else:
+                append_csv(buffer2, alpha_filename)
+                if os.path.isfile(omega_filename):
+                    concat_csv(buffer2, omega_filename, prefix="Omega_")
+            #append_csv(buffer2, csv_filename)
+            append_settings(buffer2, settings_filename)
+            #if not os.path.isfile(settings_filename + ".sim.0.recovered.BSREL"):
+                #continue
+            if os.path.isfile(omega_filename):
+                append_BSREL3(  buffer2, settings_filename +
+                                ".sim.0.recoveredOmega.BSREL")
+                append_MG94(buffer2, settings_filename +
+                            ".sim.0.recoveredOmega.mglocal.csv")
+                #if not os.path.isfile(settings_filename + ".sim.0.recovered.GTRg.txt"):
+                    #continue
+            else:
+                append_BSREL3(  buffer2, settings_filename +
+                                ".sim.0.recoveredAlpha.BSREL")
+                append_MG94(buffer2, settings_filename +
+                            ".sim.0.recoveredAlpha.mglocal.csv")
+                #if not os.path.isfile(settings_filename + ".sim.0.recovered.GTRg.txt"):
+                    #continue
+            append_GTRg(buffer2, settings_filename + ".sim.0.recovered.GTRg.txt")
+            #append_csv(buffer2, settings_filename + ".mglocal.csv")
+            buffer = concat_buffers(buffer, buffer2)
+        except (IndexError, FileNotFoundError, KeyError) as detail:
+            print("Broken set: ", prefix, " ", detail)
+            continue
     return buffer
 
 def get_prefixes(sim_dir):
@@ -221,6 +306,10 @@ def get_prefixes(sim_dir):
     import re
     file_list = glob.glob(sim_dir + os.sep + "*")
     file_list = [a for a in file_list if re.search("^\w+\/\w+\.\d+$", a) != None]
+    if len(file_list) == 0:
+        file_list = [a for a in file_list if re.search("^\w+\.\w+\/\w+\.\d+$", a) != None]
+    if len(file_list) == 0:
+        print("No files found")
     return file_list
 
 # XXX Batch this so it can run all at once and concatenate them...

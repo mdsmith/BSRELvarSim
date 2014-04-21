@@ -1,16 +1,31 @@
 # XXX remove extraneous parameters!
 
+import re
+
 def tokenize(line):
     line = [token.strip("\" :{},")
             for token in line.split()
             if token.strip("\" :{},") != ""]
     return line
 
+def recover_GTRg_output(filename):
+    file = open(filename, 'r')
+    lines = file.readlines()
+    return lines
+
 # recover one dists worth of settings
+# return those settings and whether or not alpha simulation was specified
 def recover_settings(file_name):
     tree = {}
+    alpha_sim = True
     sim_file = open(file_name, 'r')
     lines = sim_file.readlines()
+
+    # see if alpha simulation was performed
+    for line in lines:
+        occ = re.findall('length', line)
+        if len(occ) != 0:
+            alpha_sim = False
 
     # narrow to settings:
     sentry_val = "bsrel_settings"
@@ -64,9 +79,14 @@ def recover_settings(file_name):
                 # the variable name is omega, but we know there is a prop as
                 # well
                 in_omega = True
-                _, omega_v, prop_v = line
-                current_omegas.append(float(omega_v))
-                current_props.append(float(prop_v))
+                if alpha_sim:
+                    _, nonsyn_v, syn_v, prop_v = line
+                    current_omegas.append(float(nonsyn_v)/float(syn_v))
+                    current_props.append(float(prop_v))
+                else:
+                    _, omega_v, prop_v = line
+                    current_omegas.append(float(omega_v))
+                    current_props.append(float(prop_v))
         elif in_branch == True and line[0] == "}":
             #print("saving omegas and props...")
             current_branch["omegas"] = current_omegas
@@ -81,7 +101,12 @@ def recover_settings(file_name):
             #print(line)
             if in_omega == True:
                 #print("extending omega")
-                omega_v, prop_v = line
+                if alpha_sim:
+                    nonsyn_v, syn_v, prop_v = line
+                    # XXX This will need to be spruced for infinities
+                    omega_v = float(nonsyn_v)/float(syn_v)
+                else:
+                    omega_v, prop_v = line
                 current_omegas.append(float(omega_v))
                 current_props.append(float(prop_v))
             if in_omega == False:
@@ -101,7 +126,21 @@ def recover_settings(file_name):
                     #print("appending!")
                     current_omegas.append(float(omega_v))
                     current_props.append(float(prop_v))
-    return tree
+    # if alpha_sim, length hasn't been recovered. Go to the simulation stdout
+    # file to get this value
+    if alpha_sim:
+        sim_out_file = open(file_name + ".sim.txt", 'r')
+        out_lines = sim_out_file.readlines()
+        lengths = {}
+        last_number = -1
+        for line in out_lines:
+            if line[:4] == "Node":
+                last_number = line.strip().split('.')[-1]
+            if line.strip()[:6] == "length":
+                lengths[last_number] = line.strip().split(":")[-1]
+        for key,value in lengths.items():
+            tree[key]["length"] = value
+    return tree, alpha_sim
 
 # return a dict of the different taxa (which are themselves dicts
 def recover_fit(num_taxa, rec_file_name, rep):
@@ -150,44 +189,51 @@ def recover_csv(file_name, rep=-1):
     if rep != -1:
         file_name = file_name + ".sim." + str(rep) + ".recovered"
     results = {}
-    results_file = open(file_name, 'r')
-    lines = results_file.readlines()
-    lines = lines[1:]
-    for line in lines:
-        line = line.split(',')
-        results[line[0]] = {}
-        results[line[0]]["name"] = line[0]
-        results[line[0]]["length"] = line[-1]
-        results[line[0]]["omegas"] = []
-        results[line[0]]["props"] = []
-        over_one = 0
-        over_one_val = 0
-        results[line[0]]["pval"] = line[7]
-        if (line[3]) != "0":
-            if line[3] == "inf":
-                results[line[0]]["omegas"].append(10000)
-                over_one_val = 10000
-            else:
-                results[line[0]]["omegas"].append(line[3])
-                over_one_val = float(line[3])
-            results[line[0]]["props"].append(line[4])
-            over_one = 1
-        for oI in range(1, (int(line[2]) + 1 - int(over_one))):
-            if float(line[4]) == 1:
-                omegas = 0
-            else:
-                omegas =    (float(line[1]) - (float(over_one_val) *
-                            float(line[4]))) / (1 - float(line[4]))
-            if omegas < 0:
-                omegas = 0
-            #results[line[0]]["omegas"].append(str(omegas))
-            results[line[0]]["omegas"].append(omegas)
-            #results[line[0]]["props"].append(str(   (1 - float(line[4]))
-                                                    #/(float(line[2]) -
-                                                    #over_one)))
-            results[line[0]]["props"].append((  1 - float(line[4]))
-                                                /(float(line[2]) -
-                                                over_one))
+    #results_file = open(file_name, 'r')
+    header_skipped = False
+    with open(file_name, 'r') as results_file:
+        #next(results_file)
+    #lines = results_file.readlines()
+    #lines = lines[1:]
+    #for line in lines:
+        for line in results_file:
+            if not header_skipped:
+                header_skipped = True
+                continue
+            line = line.split(',')
+            results[line[0]] = {}
+            results[line[0]]["name"] = line[0]
+            results[line[0]]["length"] = line[-1]
+            results[line[0]]["omegas"] = []
+            results[line[0]]["props"] = []
+            over_one = 0
+            over_one_val = 0
+            results[line[0]]["pval"] = line[7]
+            if (line[3]) != "0":
+                if line[3] == "inf":
+                    results[line[0]]["omegas"].append(10000)
+                    over_one_val = 10000
+                else:
+                    results[line[0]]["omegas"].append(line[3])
+                    over_one_val = float(line[3])
+                results[line[0]]["props"].append(line[4])
+                over_one = 1
+            for oI in range(1, (int(line[2]) + 1 - int(over_one))):
+                if float(line[4]) == 1:
+                    omegas = 0
+                else:
+                    omegas =    (float(line[1]) - (float(over_one_val) *
+                                float(line[4]))) / (1 - float(line[4]))
+                if omegas < 0:
+                    omegas = 0
+                #results[line[0]]["omegas"].append(str(omegas))
+                results[line[0]]["omegas"].append(omegas)
+                #results[line[0]]["props"].append(str(   (1 - float(line[4]))
+                                                        #/(float(line[2]) -
+                                                        #over_one)))
+                results[line[0]]["props"].append((  1 - float(line[4]))
+                                                    /(float(line[2]) -
+                                                    over_one))
     return results
 
 def recover_simulated(num_taxa, rec_file_name, rep):

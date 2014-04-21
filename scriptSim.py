@@ -8,6 +8,7 @@ from simrun import run_simulation
 from bsrelrun import bsrel_main
 from bsrelSimParsers import (   recover_csv, recover_fit, recover_simulated,
                                 recover_settings)
+import argparse
 import sys
 import math
 import numpy as NP
@@ -449,150 +450,204 @@ def process_results(input, results):
     print(interlaced)
     return 0
 
-if len(sys.argv) != 7:
-    print(  "Valid usage:\n\t- scriptSim <settings/simulate/bsrel/process> \n" \
-            "\t<settings/simulate/bsrel/process> <number of distributions> \n" \
-            "\t<number of replicates> <length of sequences> <output file " \
-            "name>\n" \
-            "\t\t- <settings/simulation/bsrel/process> x2: the first and \n" \
-            "\t\t  last steps to perform. Previous data must exist in the \n" \
-            "\t\t  current directory. \n " \
-            "\t\t- <number of distributions>: The number of times " \
-            "generate_settings is called\n" \
-            "\t\t- <number of replicates>: The number of replicates " \
-            "HyPhy is told to run\n" \
-            "\t\t- <length of sequences>: In codons \n" \
-            "\t\t- <output file name>: Will have dist numbers appended\n",
-            file=sys.stderr)
-    exit(1)
-else:
-    start_step = sys.argv[1]
-    end_step = sys.argv[2]
-    numDist = int(sys.argv[3]) # the number of times generate_settings is called
-    numReps = sys.argv[4] # the number of replicates HyPhy is told to run
-    lenSeqs = sys.argv[5] # the number of codons generated
-    outFile = sys.argv[6] # the name of the outfile
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("first_step",
+                        help="The first step to run (settings, simulate, \
+                        bsrel, processing)")
+    parser.add_argument("last_step",
+                        help="The last step to run (settings, simulate, \
+                        bsrel, processing)")
+    parser.add_argument("num_dists",
+                        help="The number of trees to generate")
+    parser.add_argument("num_reps",
+                        help="The number of simulations to generate per \
+                        tree")
+    parser.add_argument("seq_len",
+                        help="The length of the sequences to simulate in \
+                        codons")
+    parser.add_argument("out_file",
+                        help="The output file name to which step identifiers \
+                        will be appended")
+    parser.add_argument("--alpha_sim",
+                        help="Simulate with alpha variation",
+                        action="store_true")
+    parser.add_argument("--alpha_inf",
+                        help="Also run BSREL with alpha variation",
+                        action="store_true")
+    parser.add_argument("--alpha_inf_only",
+                        help="Run BSREL with alpha variation but not BSREL \
+                        with omega variation",
+                        action="store_true")
+    args = parser.parse_args()
 
-stages = {  "SETTINGS" : 1,
-            "SIMULATE" : 2,
-            "BSREL" : 3,
-            "PROCESS" : 4 }
+    '''
+    if len(sys.argv) != 7:
+        print(  "Valid usage:\n\t- scriptSim <settings/simulate/bsrel/process> \n" \
+                "\t<settings/simulate/bsrel/process> <number of distributions> \n" \
+                "\t<number of replicates> <length of sequences> <output file " \
+                "name>\n" \
+                "\t\t- <settings/simulation/bsrel/process> x2: the first and \n" \
+                "\t\t  last steps to perform. Previous data must exist in the \n" \
+                "\t\t  current directory. \n " \
+                "\t\t- <number of distributions>: The number of times " \
+                "generate_settings is called\n" \
+                "\t\t- <number of replicates>: The number of replicates " \
+                "HyPhy is told to run\n" \
+                "\t\t- <length of sequences>: In codons \n" \
+                "\t\t- <output file name>: Will have dist numbers appended\n",
+                file=sys.stderr)
+        exit(1)
+    else:
+        start_step = sys.argv[1]
+        end_step = sys.argv[2]
+        numDist = int(sys.argv[3]) # the number of times generate_settings is called
+        numReps = sys.argv[4] # the number of replicates HyPhy is told to run
+        lenSeqs = sys.argv[5] # the number of codons generated
+        outFile = sys.argv[6] # the name of the outfile
+    '''
 
-start_step = stages [start_step.upper()]
-end_step = stages [end_step.upper()]
-#print("start: ", start_step)
-#print("end: ", end_step)
+    start_step = args.first_step
+    end_step = args.last_step
+    numDist = int(args.num_dists)
+    numReps = int(args.num_reps)
+    lenSeqs = int(args.seq_len)
+    outFile = args.out_file
+    alpha_sim = args.alpha_sim
+    omega_inf = True
+    alpha_inf = args.alpha_inf
+    if args.alpha_inf_only:
+        omega_inf = False
+        alpha_inf = True
 
-results = {}
-results_with_lengths = {}
-inputs_with_lengths = {}
 
-sim_time = 0
-bsrel_time = 0
-python_time = 0
+    stages = {  "SETTINGS" : 1,
+                "SIMULATE" : 2,
+                "BSREL" : 3,
+                "PROCESS" : 4 }
 
-if start_step <= 1 and end_step >=1:
-    print("writing settings")
-    # Write settings
-    start = time.time()
-    generate_all_settings(  num_taxa,
-                            numDist,
-                            numReps,
-                            lenSeqs,
-                            outFile,
-                            rate_classes_per_branch)
-    end = time.time()
-    sim_time += end - start
+    start_step = stages [start_step.upper()]
+    end_step = stages [end_step.upper()]
+    #print("start: ", start_step)
+    #print("end: ", end_step)
 
-if start_step <= 2 and end_step >=2:
-    print("running simulation")
-    # Run simulator
-    start = time.time()
-    run_simulation(numDist, "", outFile, node_processes, node)
-    end = time.time()
-    sim_time += end - start
+    results = {}
+    results_with_lengths = {}
+    inputs_with_lengths = {}
 
-if start_step <= 3 and end_step >=3:
-    print("running bsrel")
-    # Run BSREL
-    # XXX maybe include an option to specify these as input?
-    # e.g., have 100 simulations, run BSREL on 3...
-    start = time.time()
-    #run_all_BSREL(  numDist,
-                    #outFile,
-                    #numReps,
-                    #node_processes,
-                    #node)
-    bsrel_main(outFile)
-    end = time.time()
-    bsrel_time += end - start
+    sim_time = 0
+    bsrel_time = 0
+    python_time = 0
 
-if start_step <= 4 and end_step >=4:
-    print("processing results")
-    # Run BSREL
-    # Run BSREL
-    # XXX Process results
-    # XXX pull out to library
+    if start_step <= 1 and end_step >=1:
+        print("writing settings")
+        # Write settings
+        start = time.time()
+        generate_all_settings(  num_taxa,
+                                numDist,
+                                numReps,
+                                lenSeqs,
+                                outFile,
+                                alpha_sim,
+                                rate_classes_per_branch)
+        end = time.time()
+        sim_time += end - start
 
-    # XXX 3. separate processing and graphing
-    # XXX 4. Break graphing out to library
-    # XXX 5. allow specification of steps to run as argument
+    if start_step <= 2 and end_step >=2:
+        print("running simulation")
+        # Run simulator
+        start = time.time()
+        #run_simulation(numDist, "", outFile, node_processes, node)
+        run_simulation( numDist,
+                        "",
+                        outFile,
+                        alpha_sim,
+                        node_processes,
+                        node)
+        end = time.time()
+        sim_time += end - start
 
-    # XXX if prev steps aren't done infer necessary inputs
-    # XXX make a bunch of parsers in a parsing library
+    if start_step <= 3 and end_step >=3:
+        print("running bsrel")
+        # Run BSREL
+        # XXX maybe include an option to specify these as input?
+        # e.g., have 100 simulations, run BSREL on 3...
+        start = time.time()
+        #run_all_BSREL(  numDist,
+                        #outFile,
+                        #numReps,
+                        #node_processes,
+                        #node)
+        bsrel_main(outFile, omega=omega_inf, alpha=alpha_inf)
+        end = time.time()
+        bsrel_time += end - start
 
-    parsedInputs = {}
-    for dist in range(numDist):
-        parsedInputs[str(dist)] = recover_settings(outFile + "." + str(dist))
+    if start_step <= 4 and end_step >=4:
+        print("processing results")
+        # Run BSREL
+        # Run BSREL
+        # XXX Process results
+        # XXX pull out to library
 
-    start = time.time()
-    dist_done = 0
-    for dist_num in range(numDist):
-        this_sets_results = []
-        this_sets_len_results = []
-        for rep in range(int(numReps)):
-            this_sets_len_results.append(recover_fit(   num_taxa,
+        # XXX 3. separate processing and graphing
+        # XXX 4. Break graphing out to library
+        # XXX 5. allow specification of steps to run as argument
+
+        # XXX if prev steps aren't done infer necessary inputs
+        # XXX make a bunch of parsers in a parsing library
+
+        parsedInputs = {}
+        for dist in range(numDist):
+            parsedInputs[str(dist)] = recover_settings(outFile + "." + str(dist))
+
+        start = time.time()
+        dist_done = 0
+        for dist_num in range(numDist):
+            this_sets_results = []
+            this_sets_len_results = []
+            for rep in range(int(numReps)):
+                this_sets_len_results.append(recover_fit(   num_taxa,
+                                                            outFile
+                                                                + "."
+                                                                + str(dist_num),
+                                                            rep))
+                this_sets_results.append(recover_csv(   outFile + "."
+                                                                + str(dist_num),
+                                                        rep))
+            results[str(dist_num)] = this_sets_results
+            this_sets_len_inputs = recover_simulated(   num_taxa,
                                                         outFile
                                                             + "."
                                                             + str(dist_num),
-                                                        rep))
-            this_sets_results.append(recover_csv(   outFile + "."
-                                                            + str(dist_num),
-                                                    rep))
-        results[str(dist_num)] = this_sets_results
-        this_sets_len_inputs = recover_simulated(   num_taxa,
-                                                    outFile
-                                                        + "."
-                                                        + str(dist_num),
-                                                    rep)
-        inputs_with_lengths[str(dist_num)] = this_sets_len_inputs
-        results_with_lengths[str(dist_num)] = this_sets_len_results
-    end = time.time()
-    python_time += end - start
+                                                        rep)
+            inputs_with_lengths[str(dist_num)] = this_sets_len_inputs
+            results_with_lengths[str(dist_num)] = this_sets_len_results
+        end = time.time()
+        python_time += end - start
 
-    # recover the simulated length params
-    #print("csv results: \n", results)
-    #print("input with lengths: \n", inputs_with_lengths)
-    # recover the fit file: results_with_lengths
-    #print("results with lengths: \n", results_with_lengths)
+        # recover the simulated length params
+        #print("csv results: \n", results)
+        #print("input with lengths: \n", inputs_with_lengths)
+        # recover the fit file: results_with_lengths
+        #print("results with lengths: \n", results_with_lengths)
 
-    length_errors = length_error(parsedInputs, results)
-    print("length results:\n", length_errors)
-    length_heatarray, len_xbins, len_ybins = tuple_to_averaged_heatarray(length_errors, 12, 12)
-    print("\nLength heat array:\n", length_heatarray)
-    heatarray_to_heatmap(   length_heatarray,
-                            len_xbins,
-                            len_ybins,
-                            "Omega value",
-                            "Simulated Branch Length",
-                            "Branch Length Estimation Error Relative to Real " \
-                            "Length",
-                            "lengthError.png")
-    start = time.time()
-    process_csv_results(parsedInputs, results)
-    end = time.time()
-    python_time += end - start
+        length_errors = length_error(parsedInputs, results)
+        print("length results:\n", length_errors)
+        length_heatarray, len_xbins, len_ybins = tuple_to_averaged_heatarray(length_errors, 12, 12)
+        print("\nLength heat array:\n", length_heatarray)
+        heatarray_to_heatmap(   length_heatarray,
+                                len_xbins,
+                                len_ybins,
+                                "Omega value",
+                                "Simulated Branch Length",
+                                "Branch Length Estimation Error Relative to Real " \
+                                "Length",
+                                "lengthError.png")
+        start = time.time()
+        process_csv_results(parsedInputs, results)
+        end = time.time()
+        python_time += end - start
 
-print("Simulation time: ", sim_time)
-print("BSREL time: ", bsrel_time)
-print("Python time: ", python_time)
+    print("Simulation time: ", sim_time)
+    print("BSREL time: ", bsrel_time)
+    print("Python time: ", python_time)

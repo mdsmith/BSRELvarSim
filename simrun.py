@@ -9,6 +9,7 @@ local_processes = {}
 
 def simulate(   set_file_name,
                 nodeI,
+                alpha_sim,
                 node_processes = local_processes,
                 nodes = node_list):
     batchfile = open(set_file_name + ".bf", 'w')
@@ -28,8 +29,11 @@ def simulate(   set_file_name,
                     #'GenericSimulator.bf", inputRedirect);')
                     + '("'
                     + os.path.dirname(os.path.abspath(__file__))
-                    + os.sep
-                    + 'BSRELsimFromSettings.bf", inputRedirect);')
+                    + os.sep)
+    if alpha_sim:
+        batchfile.write('BSRELsimFromAlphaSettings.bf", inputRedirect);')
+    else:
+        batchfile.write('BSRELsimFromSettingsMod.bf", inputRedirect);')
     batchfile.close()
     call_list = [   'bpsh',
                     str(nodes[nodeI]),
@@ -45,13 +49,14 @@ def simulate(   set_file_name,
                         + '.txt', 'w')
     node_processes[str(nodeI)] = subprocess.Popen(  call_list,
                                                     stdout=output_file)
-    time.sleep(1)
+    time.sleep(0.25)
 
 # XXX change this to actually use the in_file argument (so you can use input
 # files with different, arbitrary, names)
 def run_simulation( num_dist,
                     in_file,
                     out_file,
+                    alpha_sim,
                     node_processes = local_processes,
                     nodes = node_list):
     dist_done = 0
@@ -60,6 +65,7 @@ def run_simulation( num_dist,
             dist_num = this_dist + dist_done
             simulate(   out_file + "." + str(dist_num),
                         this_dist,
+                        alpha_sim,
                         node_processes,
                         nodes)
         for sub_p in node_processes.values():
@@ -68,11 +74,12 @@ def run_simulation( num_dist,
     return 0
 
 if __name__ == "__main__":
-    if len(sys.argv) == 4:
-        num_dist, in_file, out_file = sys.argv[1:4]
+    if len(sys.argv) == 5:
+        num_dist, in_file, out_file, alpha_sim = sys.argv[1:5]
         run_simulation( int(num_dist),
                         in_file,
-                        out_file)
+                        out_file,
+                        alpha_sim)
     else:
         #print(sys.argv, file=sys.stderr)
         print(  "Valid usage:\n" \
@@ -80,5 +87,6 @@ if __name__ == "__main__":
                 "Where:\n" \
                 "\t- <num_dist>: number of distributions\n" \
                 "\t- <in_file>: input filename (may include path)\n" \
-                "\t- <out_file>: output filename (may include path)\n",
+                "\t- <out_file>: output filename (may include path)\n" \
+                "\t- <alpha_sim>: simulate using alpha variation\n",
                 file=sys.stderr)

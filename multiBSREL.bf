@@ -1,8 +1,13 @@
 RequireVersion ("2.1320130313");
 
+LF_SMOOTHING_SCALER = 0.01;
+
 PRINT_MG94 = 1;
 RUN_BSREL = 1;
 RUN_BSREL3 = 1;
+BSREL_TIME = 0;
+BSREL_TEST_TIME = 0;
+BSREL3_TIME = 0;
 
 VERBOSITY_LEVEL				= 0;
 maximum_number_of_omegas   = 10;
@@ -174,6 +179,9 @@ if (PRINT_MG94 == 1) {
 
 if (RUN_BSREL == 1) {
 
+    fprintf(stdout, "Start BSREL at: ", Time(1));
+    BSREL_TEST_TIME = Time(1);
+    BSREL_TIME = Time(1);
     pValueByBranch				  = {totalBranchCount,8};
 
     for (k = 0; k < totalBranchCount; k = k+1) {
@@ -378,6 +386,7 @@ if (RUN_BSREL == 1) {
     VERBOSITY_LEVEL = 0;
     Optimize					  (res_three_LF,three_LF);
     fprintf						  (stdout, "\nLog L = ", res_three_LF[1][0], " with ", res_three_LF[1][1] + 9, " degrees of freedom, IC = ", getIC (res_three_LF[1][0], res_three_LF[1][1], sample_size), "\n");
+    BSREL_TIME = Time(1) - BSREL_TIME;
 
     lfOut	= csvFilePath + ".fit";
     LIKELIHOOD_FUNCTION_OUTPUT = 7;
@@ -578,6 +587,14 @@ if (RUN_BSREL == 1) {
     treePath = csvFilePath + ".ps";
 
     fprintf (treePath, CLEAR_FILE, psTree);
+    BSREL_TEST_TIME = Time(1) - BSREL_TEST_TIME;
+
+    fprintf(stdout, "End BSREL at: ", Time(1));
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Time to run BSREL: ", BSREL_TIME);
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Time to run and test BSREL: ", BSREL_TEST_TIME);
+    fprintf(stdout, "\n");
 
     if (RUN_BSREL3 == 0) {
         return pValueByBranch;
@@ -586,6 +603,7 @@ if (RUN_BSREL == 1) {
 }
 
 if (RUN_BSREL3 = 1) {
+    _useGridSearch = 0;
     csvFilePath = csvFilePath + ".BSREL";
     fprintf(csvFilePath, CLEAR_FILE, KEEP_OPEN, "Branch,Mean_dNdS,RateClasses,OmegaOver1,WtOmegaOver1,LRT,p,p_Holm,BranchLength");
 
@@ -789,10 +807,14 @@ if (RUN_BSREL3 = 1) {
 
 
 
+    fprintf(stdout, "Start BSREL3 at: ", Time(1));
+    BSREL3_TIME = Time(1);
+    BSREL3_TEST_TIME = Time(1);
     fprintf 					  (stdout, "\n\n[PHASE 2] Fitting the full LOCAL alternative model (no constraints)\n");
     VERBOSITY_LEVEL = 0;
     Optimize					  (res_three_LF,three_LF);
     fprintf						  (stdout, "\nLog L = ", res_three_LF[1][0], " with ", res_three_LF[1][1] + 9, " degrees of freedom, IC = ", getIC (res_three_LF[1][0], res_three_LF[1][1], sample_size), "\n");
+    BSREL3_TIME = Time(1) - BSREL3_TIME;
 
     lfOut	= csvFilePath + ".fit";
     LIKELIHOOD_FUNCTION_OUTPUT = 7;
@@ -928,6 +950,13 @@ if (RUN_BSREL3 = 1) {
         fprintf (stdout, "\tNo branches were found to be under selection at p <= ", pthreshold, "\n");
     }
 
+    BSREL3_TEST_TIME = Time(1) - BSREL3_TEST_TIME;
+    fprintf(stdout, "End BSREL3 at: ", Time(1));
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Time to run BSREL3: ", BSREL3_TIME);
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Time to run and test BSREL3: ", BSREL3_TEST_TIME);
+    fprintf(stdout, "\n");
 
     for		(k = 0; k < totalBranchCount; k = k+1) {
         fprintf (csvFilePath, "\n", bNames[k], ",", Join(",",pValueByBranch[k][-1]));
@@ -995,6 +1024,7 @@ if (RUN_BSREL3 = 1) {
     fprintf (treePath, CLEAR_FILE, psTree);
 
     return pValueByBranch;
+
 
 }
 
