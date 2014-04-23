@@ -287,8 +287,9 @@ def run_batch(buffer, prefixes):
                 #if not os.path.isfile(settings_filename + ".sim.0.recovered.GTRg.txt"):
                     #continue
             else:
-                append_BSREL3(  buffer2, settings_filename +
-                                ".sim.0.recoveredAlpha.BSREL")
+                # Not doing multi this time... XXX
+                #append_BSREL3(  buffer2, settings_filename +
+                                #".sim.0.recoveredAlpha.BSREL")
                 append_MG94(buffer2, settings_filename +
                             ".sim.0.recoveredAlpha.mglocal.csv")
                 #if not os.path.isfile(settings_filename + ".sim.0.recovered.GTRg.txt"):

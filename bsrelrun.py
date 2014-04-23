@@ -56,6 +56,9 @@ def run_BSREL(node, file_name, omega, alpha):
         response_list.append("Yes")
         response_list.append(os.path.abspath(file_name))
         response_list.append("Y")
+        # XXX These next two are added with syn var testing
+        response_list.append("All")
+        response_list.append("")
         response_list.append(os.path.abspath(file_name) + ".recoveredAlpha")
         batchfile = open(file_name + ".recoverAlpha.bf", 'w')
         batchfile.write('inputRedirect = {};\n\n')
@@ -69,7 +72,7 @@ def run_BSREL(node, file_name, omega, alpha):
                         + '("'
                         + os.path.dirname(os.path.abspath(__file__))
                         + os.sep
-                        + 'multiBSREL.bf"'
+                        + 'multiBSRELsynvar.bf"'
                         + ', inputRedirect);')
         batchfile.close()
         call_list = [   'bpsh',
