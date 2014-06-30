@@ -4,7 +4,7 @@ LF_SMOOTHING_SCALER = 0.01;
 
 PRINT_MG94 = 1;
 RUN_BSREL = 1;
-RUN_BSREL3 = 1;
+RUN_BSREL3 = 0;
 BSREL_TIME = 0;
 BSREL_TEST_TIME = 0;
 BSREL3_TIME = 0;
@@ -60,7 +60,7 @@ bNames						 = BranchName (givenTree, -1);
 
 selectedBranches = {};
 
-if (doSynRateVariation == 0) {
+//if (doSynRateVariation == 0) {
     selectTheseForTesting = {totalBranchCount + 2, 2};
     selectTheseForTesting [0][0] = "None"; selectTheseForTesting [0][1] = "Just fit the branch-site REL model";
     selectTheseForTesting [1][0] = "All";  selectTheseForTesting [1][1] = "Test all branches";
@@ -90,7 +90,7 @@ if (doSynRateVariation == 0) {
         }
         selectedBranches [whichBranchesToTest [k] - 2] = 1;
     }
-}
+//}
 
 if (Abs (selectedBranches)) {
     fprintf (stdout, "Selected the following branches for testing");
@@ -501,6 +501,7 @@ if (RUN_BSREL == 1) {
     pValueSorter = pValueSorter["_MATRIX_ELEMENT_ROW_*(_MATRIX_ELEMENT_COLUMN_==0)+pValueByBranch[_MATRIX_ELEMENT_ROW_][p_uncorrected_column]*(_MATRIX_ELEMENT_COLUMN_==1)"];
     pValueSorter = pValueSorter % 1;
     pValueSorter = pValueSorter["_MATRIX_ELEMENT_VALUE_*(_MATRIX_ELEMENT_COLUMN_==0)+_MATRIX_ELEMENT_VALUE_*(totalBranchCount-_MATRIX_ELEMENT_ROW_)*(_MATRIX_ELEMENT_COLUMN_==1)"];
+    //pValueSorter = pValueSorter["_MATRIX_ELEMENT_VALUE_*(_MATRIX_ELEMENT_COLUMN_==0)+_MATRIX_ELEMENT_VALUE_*(Abs(selectedBranches)-_MATRIX_ELEMENT_ROW_)*(_MATRIX_ELEMENT_COLUMN_==1)"];
 
     fprintf (stdout,"\n\nSummary of branches under episodic selection (", Abs(selectedBranches)," were tested) :\n");
     hasBranchesUnderSelection = 0;
@@ -509,8 +510,33 @@ if (RUN_BSREL == 1) {
 
     for		(k = 0; k < totalBranchCount; k = k+1)
     {
-        pValueByBranch[pValueSorter[k][0]][p_corrected_column] = Min (1,pValueSorter[k][1]);
+/*
+        if (pValueSorter[k][1] < 0)
+        {
+            pValueByBranch[pValueSorter[k][0]][p_corrected_column] = 1;
+        }
+        else if (pValueSorter[k][1] == 0)
+        {
+            found = 0;
+            for (b_I = 0; b_I < Abs(selectedBranches); b_I = b_I + 1)
+            {
+                if (selectedBranches[b_I] == bNames[pValueSorter[k][0]])
+                {
+                    found = 1;
+                }
+            }
+            if (!found)
+            {
+                pValueByBranch[pValueSorter[k][0]][p_corrected_column] = 1;
+            }
+        }
+        else
+        {
+        */
+            pValueByBranch[pValueSorter[k][0]][p_corrected_column] = Min (1,pValueSorter[k][1]);
+        //}
         if (pValueSorter[k][1] <= pthreshold)
+        //if (pValueByBranch[pValueSorter[k][0]][p_corrected_column] <= pthreshold)
         {
             fprintf (stdout, "\t", bNames[pValueSorter[k][0]], " p = ", pValueByBranch[pValueSorter[k][0]][p_corrected_column], "\n");
             hasBranchesUnderSelection += 1;
